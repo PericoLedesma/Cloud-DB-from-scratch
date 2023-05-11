@@ -1,0 +1,6 @@
+
+
+# Bash file to automate the process
+
+docker build -t client.py .
+docker run -it client.py

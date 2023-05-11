@@ -1,0 +1,6 @@
+
+
+# Bash file to automate the process
+
+docker build -t container1 .
+docker run container1
