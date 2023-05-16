@@ -17,6 +17,12 @@ class KVServer:
         # Cache initialization
         if cache_type == 'fifo':
             self.cache = FIFOCache(cache_cap)
+        elif cache_type == 'lru':
+            self.cache = LRUCache(cache_cap)
+        elif cache_type == 'lfu':
+            self.cache = LFUCache(cache_cap)
+
+
         else:
             self.cache = FIFOCache(cache_cap)
 
