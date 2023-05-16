@@ -1,11 +1,28 @@
-import socket
-import shelve
-import threading
-import logging
-import os
 import argparse
-from collections import OrderedDict, deque
-from functools import lru_cache
+import logging
+import shelve
+import socket
+import threading
+from collections import OrderedDict
+
+
+class LRUCache:
+    def __init__(self, capacity):
+        self.capacity = capacity
+        self.cache = OrderedDict()
+
+    def get(self, key):
+        if key not in self.cache:
+            return None
+        self.cache.move_to_end(key)
+        return self.cache[key]
+
+    def put(self, key, value):
+        if key in self.cache:
+            self.cache.move_to_end(key)
+        self.cache[key] = value
+        if len(self.cache) > self.capacity:
+            self.cache.popitem(last=False)
 
 
 class KeyValueServer:
@@ -28,12 +45,12 @@ class KeyValueServer:
         self.LFU = 'lfu'
 
         # Cache settings
-        self.cache_size = 0
-        self.cache_strategy = self.LRU
+        self.cache_strategy = self.FIFO
 
         # Cache data structures
         self.fifo_cache = OrderedDict()
-        self.lru_cache = lru_cache(maxsize=self.cache_size)
+        # self.lru_cache = lru_cache(maxsize=self.cache_size)
+        self.lru_cache = LRUCache(cache_size)
         self.lfu_cache = {}
 
         # Cache access lock
@@ -55,7 +72,7 @@ class KeyValueServer:
                             self.fifo_cache.popitem(last=False)
                         self.fifo_cache[key] = value
                     elif self.cache_strategy == self.LRU:
-                        put_lru_value(key, value)
+                        self.lru_cache.put(key, value)
                     elif self.cache_strategy == self.LFU:
                         if key in self.lfu_cache:
                             self.lfu_cache[key] = (self.lfu_cache[key][0] + 1, value)
@@ -76,7 +93,7 @@ class KeyValueServer:
                     if self.cache_strategy == self.FIFO:
                         result = self.fifo_cache.get(key)
                     elif self.cache_strategy == self.LRU:
-                        result = get_lru_value(key)
+                        result = self.lru_cache.get(key)
                     elif self.cache_strategy == self.LFU:
                         result = self.lfu_cache.get(key, (None, None))[1]
 
@@ -88,7 +105,7 @@ class KeyValueServer:
                         else:
                             response = f"get_error {key}"
                 else:
-                    logging.info(f'Cache hit for key: {key}')
+                    response = f'get_success (Cache hit for key): {key} {result}'
             elif command == 'delete':
                 key = args[0]
                 with shelve.open('storage.db') as db:
@@ -114,16 +131,6 @@ class KeyValueServer:
                 client_socket, _ = server_socket.accept()
                 client_thread = threading.Thread(target=self.handle_client, args=(client_socket,))
                 client_thread.start()
-
-
-@lru_cache
-def get_lru_value(key):
-    return None
-
-
-def put_lru_value(key, value):
-    get_lru_value.cache_clear()
-    get_lru_value(key)
 
 
 def main():

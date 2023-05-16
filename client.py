@@ -6,14 +6,14 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 
 def send_request(server_socket, request):
-    server_socket.sendall((request + "\r\n").encode())
+    server_socket.sendall(request.encode())
     response = server_socket.recv(1024)
     return response.decode()
 
 
 def main():
     host = '127.0.0.1'
-    port = 65431
+    port = 65432
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
         client_socket.connect((host, port))
