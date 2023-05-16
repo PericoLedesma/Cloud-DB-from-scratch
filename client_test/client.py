@@ -1,6 +1,6 @@
 import sys
 import socket
-
+import time
 
 def send_put_request(host, port, key, value):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
@@ -9,7 +9,7 @@ def send_put_request(host, port, key, value):
 
         # Send a PUT request
         #request = f'PUT {key} HTTP/1.1\r\nContent-Length: {len(value)}\r\n\r\n{value}'.encode('utf-8')
-        request = f'PUT {key} {value}'.encode('utf-8')
+        request = f'put {key} {value}'.encode('utf-8')
 
         # Send a GET request
         #request = 'GET /index.html HTTP/1.1\r\nHost: {}\r\n\r\n'.format(host).encode()
@@ -19,8 +19,8 @@ def send_put_request(host, port, key, value):
         response = client.recv(1024)
         print(response.decode('utf-8'))
 
-
-        request = f'CLOSE'.encode('utf-8')
+        time.sleep(10)  # Pause execution for 3 seconds
+        request = f'close'.encode('utf-8')
 
         print("Request to send: ", request)
         client.sendall(request)

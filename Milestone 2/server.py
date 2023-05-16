@@ -25,7 +25,7 @@ class KeyValueServer:
         # Cache displacement strategies
         self.FIFO = 'fifo'
         self.LRU = 'lru'
-        self.LFU = 'lfu'
+        self.LRU = 'lfu'
 
         # Cache settings
         self.cache_size = 0
