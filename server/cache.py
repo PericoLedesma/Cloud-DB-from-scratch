@@ -1,4 +1,3 @@
-from collections import OrderedDict
 from collections import defaultdict, OrderedDict
 
 
@@ -39,7 +38,7 @@ class LFUCache:
         self.cache[key][key] = value
 
     def print_cache(self):
-        print("------Cache Contents:----")
+        print("------Cache ----")
         for key, freq_map in self.cache.items():
             for inner_key, value in freq_map.items():
                 print(f"Key: {inner_key}, Value: {value}")
@@ -71,7 +70,7 @@ class LRUCache:
         self.cache[key] = value
 
     def print_cache(self):
-        print("------Cache Contents:----")
+        print("------Cache ----")
         for key, value in self.cache.items():
             print(f"Key: {key}, Value: {value}")
         print("----------")
@@ -90,13 +89,18 @@ class FIFOCache:
         return None
 
     def put(self, key, value):
+        for index, item in enumerate(self.cache):
+            if item['key'] == key:
+                self.cache[index]['value'] = value
+                return
+
         if len(self.cache) >= self.capacity:
             self.cache.pop(0)  # Remove the oldest item
-
         self.cache.append({'key': key, 'value': value})
 
+
     def print_cache(self):
-        print("------Cache Contents:----")
+        print("------Cache----")
         for item in self.cache:
             print(f"Key: {item['key']}, Value: {item['value']}")
         print("----------")

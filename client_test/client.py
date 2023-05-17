@@ -6,6 +6,8 @@ def send_put_request(host, port, key, value):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
 
         client.connect((host, port))
+        response = client.recv(1024)
+        print(response.decode('utf-8'))
 
         # Send a PUT request
         #request = f'PUT {key} HTTP/1.1\r\nContent-Length: {len(value)}\r\n\r\n{value}'.encode('utf-8')
