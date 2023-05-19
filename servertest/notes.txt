@@ -1,0 +1,16 @@
+
+
+docker build -t kv-server .
+echo 'Running...'
+docker run -it -p 8000:8000 kv-server
+
+
+
+
+
+
+
+
+docker run arg_py HELLO FROM TUTORIALSPOINT
+docker build -t arg_py .
+docker run arg_py -f input.txt -n 10

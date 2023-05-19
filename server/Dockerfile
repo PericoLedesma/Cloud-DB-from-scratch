@@ -5,7 +5,9 @@ COPY . /server
 
 WORKDIR /server
 
-RUN pip install -r requirements.txt
+#RUN pip install -r requirements.txt
+
+#CMD python kvserver.py
 
 
-CMD python server.py
+ENTRYPOINT ["python3", "kvserver.py"]

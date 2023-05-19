@@ -37,6 +37,11 @@ class LFUCache:
         self.frequency[key] += 1
         self.cache[key][key] = value
 
+    def delete(self, key):
+        if key in self.cache:
+            self.cache[key].pop(key)
+            del self.frequency[key]
+
     def print_cache(self):
         print("------Cache ----")
         for key, freq_map in self.cache.items():
@@ -69,6 +74,10 @@ class LRUCache:
             self.cache.popitem(last=False)
         self.cache[key] = value
 
+    def delete(self, key):
+        if key in self.cache:
+            del self.cache[key]
+
     def print_cache(self):
         print("------Cache ----")
         for key, value in self.cache.items():
@@ -98,6 +107,9 @@ class FIFOCache:
             self.cache.pop(0)  # Remove the oldest item
         self.cache.append({'key': key, 'value': value})
 
+    def delete(self, key):
+        if key in self.cache:
+            del self.cache[key]
 
     def print_cache(self):
         print("------Cache----")
