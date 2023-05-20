@@ -1,0 +1,30 @@
+2023-05-20 16:47:29,379 - INFO - KVServer1>---- KVSSERVER 1 ACTIVE -----
+2023-05-20 16:47:29,380 - DEBUG - KVServer1>Listening on 0.0.0.0:8000
+2023-05-20 16:47:31,381 - DEBUG - KVServer1> Checking Active clients: []
+2023-05-20 16:47:31,381 - DEBUG - KVServer1> Active clients 0
+2023-05-20 16:47:31,381 - DEBUG - KVServer1> Still active. reset while.
+2023-05-20 16:47:31,600 - DEBUG - KVServer1> Checking Active clients: []
+2023-05-20 16:47:31,600 - DEBUG - KVServer1> Active clients 0
+2023-05-20 16:47:31,600 - INFO - KVServer1>Connection accepted:, ('127.0.0.1', 51587)
+2023-05-20 16:47:31,600 - INFO - 		Handler1> Connected
+2023-05-20 16:47:31,601 - DEBUG - KVServer1> Checking Active clients: [1]
+2023-05-20 16:47:31,601 - DEBUG - KVServer1> Active clients 1
+2023-05-20 16:47:31,601 - DEBUG - KVServer1> Still active. reset while.
+2023-05-20 16:47:33,604 - DEBUG - KVServer1> Checking Active clients: [1]
+2023-05-20 16:47:33,604 - DEBUG - KVServer1> Active clients 1
+2023-05-20 16:47:33,604 - DEBUG - KVServer1> Still active. reset while.
+2023-05-20 16:47:35,608 - DEBUG - KVServer1> Checking Active clients: [1]
+2023-05-20 16:47:35,608 - DEBUG - KVServer1> Active clients 1
+2023-05-20 16:47:35,608 - DEBUG - KVServer1> Still active. reset while.
+2023-05-20 16:47:37,611 - DEBUG - KVServer1> Checking Active clients: [1]
+2023-05-20 16:47:37,611 - DEBUG - KVServer1> Active clients 1
+2023-05-20 16:47:37,611 - DEBUG - KVServer1> Still active. reset while.
+2023-05-20 16:47:39,617 - DEBUG - KVServer1> Checking Active clients: [1]
+2023-05-20 16:47:39,617 - DEBUG - KVServer1> Active clients 1
+2023-05-20 16:47:39,617 - DEBUG - KVServer1> Still active. reset while.
+2023-05-20 16:47:41,601 - DEBUG - 		Handler1>Time out client
+2023-05-20 16:47:41,601 - DEBUG - 		Handler1> End connection
+2023-05-20 16:47:41,601 - INFO - 		Handler1> Closing handler 
+2023-05-20 16:47:41,618 - DEBUG - KVServer1> Checking Active clients: []
+2023-05-20 16:47:41,619 - DEBUG - KVServer1> Active clients 0
+2023-05-20 16:47:41,619 - DEBUG - KVServer1> Closing server
