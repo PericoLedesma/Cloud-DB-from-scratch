@@ -21,31 +21,78 @@ import argparse
 
 
 
+message= ' '
 
-# Create an argument parser
-parser = argparse.ArgumentParser(description='Script for performing a specific task.')
+print(message)
 
-# Add arguments
-parser.add_argument('-f', '--file', help='Input file path')
-parser.add_argument('-n', '--number', type=int, help='Number argument')
+if message is None:
+    print("hello")
 
-# Parse the command-line arguments
-args = parser.parse_args()
 
-# Access the parsed arguments
-file_path = args.file
-number = args.number
+if message == "":
+    print("hello2")
 
-# Perform the task based on the provided arguments
-if file_path:
-    print(f'Input file path: {file_path}')
-else:
-    print('No input file path provided.')
+if not message:
+    print("hello3")
 
-if number is not None:
-    print(f'Number argument: {number}')
-else:
-    print('No number argument provided.')
+# class ParentClass:
+#
+#     def __init__(self):
+#         self.child = ChildClass(self)
+#     def parent_function(self):
+#         print("This is a function from the parent class")
+#
+#
+# class ChildClass(ParentClass):
+#     def __init__(self, parent):
+#         parent.parent_function()
+#     def child_function(self):
+#         print("This is a function from the child class")
+#
+#
+# parent = ParentClass()
+# # Create an instance of the ChildClass
+
+
+
+#
+# response2 = b'get_error apple123@# \r\n ppl'
+#
+#
+# method, *args = response2.decode().split('\r\n')
+# print(method)
+# print(args)
+#
+# print('-----')
+# print(repr(response2))
+# buffer = response2.decode().split()
+# print(buffer)
+
+
+# # Create an argument parser
+# parser = argparse.ArgumentParser(description='Script for performing a specific task.')
+#
+# # Add arguments
+# parser.add_argument('-f', '--file', help='Input file path')
+# parser.add_argument('-n', '--number', type=int, help='Number argument')
+#
+# # Parse the command-line arguments
+# args = parser.parse_args()
+#
+# # Access the parsed arguments
+# file_path = args.file
+# number = args.number
+#
+# # Perform the task based on the provided arguments
+# if file_path:
+#     print(f'Input file path: {file_path}')
+# else:
+#     print('No input file path provided.')
+#
+# if number is not None:
+#     print(f'Number argument: {number}')
+# else:
+#     print('No number argument provided.')
 #
 #
 #

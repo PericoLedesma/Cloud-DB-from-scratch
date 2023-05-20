@@ -1,10 +1,11 @@
 from client_handler import *
-
+import time
 import os
 import socket
 import threading
 import argparse
 import logging
+import select
 
 
 class KVServer:
@@ -39,31 +40,57 @@ class KVServer:
 
             self.log.debug(self.sprint(f'Listening on {self.host}:{self.port}'))
 
+            timeout = 10  # Timeout duration in seconds
+            start_time = time.time()
+            server_socket.settimeout(5)
+
             while True:
-                conn, addr = server_socket.accept()
-                client_id = self.next_client_id()
+                print('waiting')
+                ready_sockets, _, _ = select.select([server_socket], [], [], server_socket.gettimeout())
 
-                if len(self.clients_list) < self.max_clients:
-                    self.log.debug(self.sprint(f'New client '))
-                    client_thread = threading.Thread(target=self.init_handler, args=(conn, client_id))
-                    client_thread.start()
-                else:
-                    self.log.debug(self.sprint(f'Max number of clients '))
-                    #todo
+                if ready_sockets:
+                    conn, addr = server_socket.accept()
+                    print("Connection accepted:", addr)
+                    client_id = self.next_client_id()
 
-                # todo Check active connections
+                    if len(self.clients_list) < self.max_clients:
+                        self.log.debug(self.sprint(f'New client '))
+                        client_thread = threading.Thread(target=self.init_handler, args=(conn, client_id))
+                        client_thread.start()
+                    else:
+                        self.log.debug(self.sprint(f'Max number of clients '))
+                        # todo
+                    timeout = 10  # Timeout duration in seconds
+                    start_time = time.time()
 
                 self.log.debug(self.sprint(f'Active clients {self.clients_list}'))
+                current_time = time.time()
+                elapsed_time = current_time - start_time
+                print('t=', elapsed_time)
+                if not self.clients_list and elapsed_time >= timeout:
+                    print('Closing server')
+                    break
+                else:
+                    print("Timeout occurred while waiting for connection.")
+                    continue
+
+                # conn, addr = server_socket.accept()
+                print('waiting2')
+
+            print('finihs while')
+
+
+
 
 
     def init_handler(self, conn, client_id):
-        self.clients_conn.append(Client_handler(client_fd=conn,
-                                                client_id=client_id,
-                                                clients_list=self.clients_list,
-                                                cache_type=self.c_strg,
-                                                cache_cap=self.c_size,
-                                                lock=self.lock,
-                                                logger=self.log))
+        Client_handler(client_fd=conn,
+                        client_id=client_id,
+                        clients_list=self.clients_list,
+                        cache_type=self.c_strg,
+                        cache_cap=self.c_size,
+                        lock=self.lock,
+                        logger=self.log)
 
     def sprint(self, *args):
         # if len(args) != 0:
@@ -94,7 +121,7 @@ class KVServer:
                                 filemode='w',
                                 level=logging.INFO,
                                 format='%(asctime)s - %(levelname)s - %(message)s')
-        elif log_level == 'debug':
+        elif log_level == 'DEBUG':
             logging.basicConfig(filename=log_dir,
                                 filemode='w',
                                 level=logging.DEBUG,
@@ -111,15 +138,15 @@ def main():
     parser.add_argument('-i', '--id', default=1, type=int, help='Server id')
     parser.add_argument('-a', '--address', default='0.0.0.0', help='Server address')
     parser.add_argument('-p', '--port', default='8000', type=int, help='Server port')
-    parser.add_argument('-s', '--cache-strategy', default='fifo', type=str, help='Cache strategy: fifo, lru, lfu')
+    parser.add_argument('-s', '--cache-strategy', default='FIFO', type=str, help='Cache strategy: fifo, lru, lfu')
     parser.add_argument('-c', '--cache-size', default=3, type=int, help='Cache size')
-    parser.add_argument('-ll', '--log-level', default='INFO', help='Log level:debug or INFO')
+    parser.add_argument('-ll', '--log-level', default='DEBUG', help='Log level:DEBUG or INFO')
     parser.add_argument('-l', '--log-file', default='server.log', help='Log file')
     parser.add_argument('-d', '--directory', default='data', type=str, help='Storage directory')
     # parser.add_argument("-h", "--help", required=True, help="Help")
 
     args = parser.parse_args()
-    print(args.id)
+
     lb_server1 = KVServer(host=args.address,
                           port=args.port,
                           id=args.id,

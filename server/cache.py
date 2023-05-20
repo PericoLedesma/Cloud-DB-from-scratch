@@ -108,8 +108,10 @@ class FIFOCache:
         self.cache.append({'key': key, 'value': value})
 
     def delete(self, key):
-        if key in self.cache:
-            del self.cache[key]
+        for index, item in enumerate(self.cache):
+            if item['key'] == key:
+                del self.cache[index]
+                return True
 
     def print_cache(self):
         print("------Cache----")

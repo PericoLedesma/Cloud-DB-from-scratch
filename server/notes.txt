@@ -3,7 +3,6 @@
 # Bash file to automate the process
 
 docker build -t kv-server .
-echo 'Running...'
 docker run -it -p 8000:8000 kv-server -d putas
 
 docker run -it kv-server -i 9999
@@ -15,10 +14,17 @@ exit()
 
 python kv-server -d putas
 
-docker exec -it kv-server ls /server
-docker exec -it 89bdf952faef ls /server
-docker exec -it a28645facf1e ls /server
-docker exec -it kv-server:latest ls /server
+
+docker exec -it 401ea30f115c ls /server
+
+
+docker build -t kv-server .
+docker run -it -p 8000:8000 kv-server
+
+
 
 docker build -t gitlab.lrz.de:5005/cdb-23/gr4/ms2/kv-server .
 docker push gitlab.lrz.de:5005/cdb-23/gr4/ms2/kv-server
+
+
+send get apple123@# \r\n get apple123@#
