@@ -15,7 +15,7 @@ class KVServer:
         self.cli = f'KVServer{self.id}>'
         self.host = host
         self.port = port
-        self.timeout = 10
+        self.timeout = 100
 
         #Cache
         self.c_strg = cache_strategy
@@ -32,6 +32,7 @@ class KVServer:
 
         self.log.info(f'{self.cli}---- KVSSERVER {id} ACTIVE -----')
         self.listen_to_connections()
+        self.log.info(f'{self.cli}---- KVSSERVER {id} SLEEP -----')
 
 
     def listen_to_connections(self):
@@ -68,21 +69,8 @@ class KVServer:
                     self.log.debug(f'{self.cli} Closing server')
                     break
                 else:
-                    self.log.debug(f'{self.cli} Still active. Reset while.')
+                    # self.log.debug(f'{self.cli} Still active. Reset while.')
                     continue
-
-
-
-    def check_active_clients(self):
-        active = list()
-        for key, value in self.clients_conn.items():
-            if value is None:
-                del self.clients_conn[key]
-            else:
-                active.append(value.client_id)
-        self.log.debug(f'{self.cli} Checking Active clients. Ids: {active}')
-        self.log.debug(f'{self.cli} Active clients {len(self.clients_conn)}')
-
 
 
     def init_handler(self, conn, addr):
@@ -95,6 +83,16 @@ class KVServer:
                         cache_cap=self.c_size,
                         lock=self.lock,
                         logger=self.log)
+
+
+    def check_active_clients(self):
+        active = list()
+        for key, value in self.clients_conn.items():
+            if value is None:
+                del self.clients_conn[key]
+            else:
+                active.append(value.client_id)
+        self.log.debug(f'{self.cli} Active clients: {len(self.clients_conn)}, Ids: {active}')
 
 
 
@@ -127,8 +125,7 @@ class KVServer:
 
 
 
-
-
+# ------------------------------------------------------------------------------------------
 
 def main():
     parser = argparse.ArgumentParser(description='Load balancer server')

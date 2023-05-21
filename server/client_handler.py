@@ -16,6 +16,7 @@ class Client_handler:
         self.log = logger
         self.lock = lock
         self.welcome_msg = f'Connection to KVServer established: /{self.client_fd.getsockname()[0]} / {self.client_fd.getsockname()[1]}'
+        self.welcome_msg = 'hello'
 
         clients_conn[client_id] = self
 
@@ -108,7 +109,7 @@ class Client_handler:
                     if db.get(key) == value:
                         self.log.debug(f"{self.cli}{key} |{value} already exists with same values")
                         self.log.info(f'{self.cli}put_not_update {key}')
-                        return f'put_not_update {key}'
+                        return f'put_not_update {key}' #Todo creo que esta respuesta me la he inventado
                     else:
                         self.log.debug(f"{self.cli} Key>{key} already exists. Overwriting value.")
                         db[key] = value
@@ -161,7 +162,7 @@ class Client_handler:
             self.log.info(f'{self.cli}delete_error {key}')
             return f'delete_error {key}'
 
-    def handle_response(self, response):
+    def handle_response(self, response): #Back to normal
         chunk_size = 128 * 1024  # 128 KBytes
         # Split the message into chunks
         chunks = [response[i:i + chunk_size] for i in range(0, len(response), chunk_size)]
