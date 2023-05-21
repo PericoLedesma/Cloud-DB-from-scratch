@@ -12,9 +12,9 @@ def generate_requests(num_requests):
 
         if operation == 'put':
             value = random.choice(values)
-            request = {'operation': 'put', 'key': key, 'value': value}
+            request = f'{operation} {key} {value}'
         else:
-            request = {'operation': operation, 'key': key}
+            request = f'{operation} {key}'
 
         requests.append(request)
 
@@ -26,32 +26,30 @@ def simulate_server(requests):
     responses = []
 
     for request in requests:
-        operation = request['operation']
-        key = request['key']
+        tokens = request.split()
+        operation = tokens[0]
+        key = tokens[1]
 
         if operation == 'put':
-            value = request['value']
+            value = tokens[2]
             if key in storage:
-                response = {'status': 'put_update', 'key': key}
+                response = f'put_update {key}'
             else:
                 storage[key] = value
-                response = {'status': 'put_success', 'key': key}
+                response = f'put_success {key}'
         elif operation == 'get':
             if key in storage:
                 value = storage[key]
-                response = {'status': 'get_success', 'key': key, 'value': value}
+                response = f'get_success {key} {value}'
             else:
-                response = {'status': 'get_error', 'key': key}
+                response = f'get_error {key}'
         elif operation == 'delete':
             if key in storage:
                 del storage[key]
-                response = {'status': 'delete_success', 'key': key}
+                response = f'delete_success {key} {value}'
             else:
-                response = {'status': 'delete_error', 'key': key}
+                response = f'delete_error {key}'
 
         responses.append(response)
 
     return responses
-
-
-

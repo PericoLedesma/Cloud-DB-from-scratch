@@ -1,0 +1,179 @@
+2023-05-21 22:37:08,548 - INFO - KVServer1>---- KVSSERVER 1 ACTIVE -----
+2023-05-21 22:37:08,548 - DEBUG - KVServer1>Listening on 0.0.0.0:8000
+2023-05-21 22:37:10,551 - DEBUG - KVServer1> Active clients: 0, Ids: []
+2023-05-21 22:37:10,887 - DEBUG - KVServer1> Active clients: 0, Ids: []
+2023-05-21 22:37:10,887 - INFO - KVServer1>Connection accepted:, ('127.0.0.1', 57598)
+2023-05-21 22:37:10,887 - INFO - 		Handler1> Connected
+2023-05-21 22:37:10,887 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:37:10,888 - DEBUG - 		Handler1>key3 checking STORAGE
+2023-05-21 22:37:10,888 - DEBUG - 		Handler1>key3Request => get key3
+2023-05-21 22:37:10,892 - DEBUG - 		Handler1>Key key3 not found
+2023-05-21 22:37:10,892 - INFO - 		Handler1>get_error key3
+2023-05-21 22:37:10,893 - DEBUG - 		Handler1>key4 checking STORAGE
+2023-05-21 22:37:10,893 - DEBUG - 		Handler1>key4Request => get key4
+2023-05-21 22:37:10,893 - DEBUG - 		Handler1>Key key4 not found
+2023-05-21 22:37:10,893 - INFO - 		Handler1>get_error key4
+2023-05-21 22:37:10,894 - DEBUG - 		Handler1>key5 checking STORAGE
+2023-05-21 22:37:10,894 - DEBUG - 		Handler1>key5Request => get key5
+2023-05-21 22:37:10,894 - DEBUG - 		Handler1>Key key5 not found
+2023-05-21 22:37:10,894 - INFO - 		Handler1>get_error key5
+2023-05-21 22:37:10,895 - DEBUG - 		Handler1>Request => delete key5
+2023-05-21 22:37:10,895 - DEBUG - 		Handler1>Key key5 not found
+2023-05-21 22:37:10,895 - INFO - 		Handler1>delete_error key5
+2023-05-21 22:37:10,896 - DEBUG - 		Handler1>Request => put key2 value2
+2023-05-21 22:37:10,896 - DEBUG - 		Handler1>key2Data stored: key=key2, value=value2
+2023-05-21 22:37:10,896 - INFO - 		Handler1>key2put_success key2
+2023-05-21 22:37:10,896 - DEBUG - 		Handler1>Request => delete key2
+2023-05-21 22:37:10,896 - DEBUG - 		Handler1>Key key2 found.
+2023-05-21 22:37:10,896 - INFO - 		Handler1>delete_success key2 value2
+2023-05-21 22:37:10,897 - DEBUG - 		Handler1>Request => delete key1
+2023-05-21 22:37:10,897 - DEBUG - 		Handler1>Key key1 not found
+2023-05-21 22:37:10,897 - INFO - 		Handler1>delete_error key1
+2023-05-21 22:37:10,897 - DEBUG - 		Handler1>Request => delete key1
+2023-05-21 22:37:10,897 - DEBUG - 		Handler1>Key key1 not found
+2023-05-21 22:37:10,898 - INFO - 		Handler1>delete_error key1
+2023-05-21 22:37:10,898 - DEBUG - 		Handler1>Request => delete key3
+2023-05-21 22:37:10,898 - DEBUG - 		Handler1>Key key3 not found
+2023-05-21 22:37:10,898 - INFO - 		Handler1>delete_error key3
+2023-05-21 22:37:10,899 - DEBUG - 		Handler1>key1 checking STORAGE
+2023-05-21 22:37:10,899 - DEBUG - 		Handler1>key1Request => get key1
+2023-05-21 22:37:10,899 - DEBUG - 		Handler1>Key key1 not found
+2023-05-21 22:37:10,899 - INFO - 		Handler1>get_error key1
+2023-05-21 22:37:10,899 - DEBUG - 		Handler1>Request => put key5 value3
+2023-05-21 22:37:10,899 - DEBUG - 		Handler1>key5Data stored: key=key5, value=value3
+2023-05-21 22:37:10,899 - INFO - 		Handler1>key5put_success key5
+2023-05-21 22:37:10,899 - DEBUG - 		Handler1>Request => put key2 value5
+2023-05-21 22:37:10,900 - DEBUG - 		Handler1>key2Data stored: key=key2, value=value5
+2023-05-21 22:37:10,900 - INFO - 		Handler1>key2put_success key2
+2023-05-21 22:37:10,900 - DEBUG - 		Handler1>Request => delete key5
+2023-05-21 22:37:10,900 - DEBUG - 		Handler1>Key key5 found.
+2023-05-21 22:37:10,900 - INFO - 		Handler1>delete_success key5 value3
+2023-05-21 22:37:12,892 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:37:14,893 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:37:16,895 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:37:18,897 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:37:20,902 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:37:22,907 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:37:24,911 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:37:26,914 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:37:28,916 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:37:30,918 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:37:32,922 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:37:34,931 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:37:36,933 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:37:38,936 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:37:40,939 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:37:42,942 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:37:44,947 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:37:46,950 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:37:48,951 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:37:50,953 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:37:52,958 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:37:54,961 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:37:56,962 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:37:58,967 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:38:00,969 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:38:02,974 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:38:04,979 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:38:06,983 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:38:08,986 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:38:10,991 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:38:12,994 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:38:14,998 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:38:17,000 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:38:19,006 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:38:21,011 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:38:23,015 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:38:25,016 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:38:27,016 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:38:29,018 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:38:31,020 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:38:33,025 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:38:35,030 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:38:37,031 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:38:39,037 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:38:41,041 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:38:43,043 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:38:45,045 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:38:47,050 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:38:49,053 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:38:51,056 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:38:53,057 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:38:55,059 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:38:57,063 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:38:59,068 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:39:01,072 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:39:03,077 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:39:05,078 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:39:07,083 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:39:09,088 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:39:11,092 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:39:13,095 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:39:15,097 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:39:17,099 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:39:19,104 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:39:21,104 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:39:23,109 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:39:25,110 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:39:27,113 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:39:29,115 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:39:31,117 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:39:33,119 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:39:35,123 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:39:37,126 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:39:39,127 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:39:41,131 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:39:43,136 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:39:45,141 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:39:47,145 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:39:49,146 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:39:51,148 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:39:53,152 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:39:55,156 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:39:57,157 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:39:59,161 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:40:01,164 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:40:03,165 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:40:05,166 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:40:07,167 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:40:09,168 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:40:11,170 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:40:13,174 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:40:15,178 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:40:17,181 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:40:19,181 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:40:21,182 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:40:23,187 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:40:25,192 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:40:27,195 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:40:29,199 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:40:31,203 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:40:33,207 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:40:35,211 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:40:37,215 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:40:39,220 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:40:41,223 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:40:43,224 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:40:45,228 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:40:47,233 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:40:49,236 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:40:51,239 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:40:53,242 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:40:55,247 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:40:57,252 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:40:59,253 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:41:01,256 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:41:03,259 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:41:05,263 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:41:07,265 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:41:09,269 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:41:11,272 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:41:13,278 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:41:15,283 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:41:17,287 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:41:19,291 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:41:21,297 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:41:23,301 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:41:25,302 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:41:27,305 - DEBUG - KVServer1> Active clients: 1, Ids: [1]
+2023-05-21 22:41:29,306 - DEBUG - KVServer1> Active clients: 1, Ids: [1]

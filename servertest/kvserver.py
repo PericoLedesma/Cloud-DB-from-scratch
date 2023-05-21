@@ -98,7 +98,7 @@ if not message:
 #
 # # Server configuration
 # HOST = '0.0.0.0'  # Listen on all available network interfaces
-# PORT = 8000      # Choose a free port for the server
+# PORT = 8000      # Choose a free port for the kvserver
 #
 # # Create a socket object
 # server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -112,20 +112,20 @@ if not message:
 # print(f"Server listening on {HOST}:{PORT}")
 #
 # while True:
-#     # Accept a client connection
+#     # Accept a kvclient connection
 #     client_socket, client_address = server_socket.accept()
 #     print(f"Connected by {client_address}")
 #
-#     response = "Hi client!"
+#     response = "Hi kvclient!"
 #     client_socket.sendall(response.encode())
 #
-#     # Receive data from the client
+#     # Receive data from the kvclient
 #     data = client_socket.recv(1024).decode()
 #     print(f"Received message: {data}")
 #
-#     # Send a response back to the client
+#     # Send a response back to the kvclient
 #     response = "Message received successfully!"
 #     client_socket.sendall(response.encode())
 #
-#     # Close the client socket connection
+#     # Close the kvclient socket connection
 #     client_socket.close()

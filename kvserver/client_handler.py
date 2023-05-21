@@ -1,7 +1,7 @@
 import sys
 import shelve
 import os
-from cache import *
+from cache_classes import *
 import socket
 
 
@@ -29,14 +29,11 @@ class Client_handler:
 
     def handle_conn(self):
         self.log.info(f'{self.cli} Connected')
-        # self.handle_response('Welcome client. You are connected to the server')
         self.handle_response(self.welcome_msg)
+
         while True:
             try:
                 request = self.client_fd.recv(128 * 1024)
-                # print('request before deco >', repr(request))
-                # print('request  deco >', repr(request.decode()))
-                # print('request  deco split>', repr(request.decode().split('\r\n')))
                 request = request.replace(b'\\r\\n', b'\r\n')
                 messages = request.decode().split('\r\n')
 
@@ -47,22 +44,19 @@ class Client_handler:
                     self.handle_response(response)
                     if response == 'End connection':
                         break
+
             except socket.timeout:
                 self.log.debug(f'{self.cli}Time out client')
                 break
-
         self.log.debug(f'{self.cli} End connection')
         self.client_fd.close()
 
+
     def handle_request(self, msg):
         method, *args = msg.split()
-        # print('method', method)
-        # print(len(args))
-
+        self.cache.print_cache()
         if method == 'put' and len(args) > 1:
             key, value = args[0], ' '.join(args[1:])
-            # print('key', key)
-            # print('value', value)
             self.cache.put(key, value)
             with self.lock:
                 return self.PUT_request(key, value)
@@ -70,8 +64,8 @@ class Client_handler:
         elif method == 'get' and len(args) == 1:
             key = args[0]
             if self.cache.get(key):
-                self.log.debug(f'{self.cli}{key} {self.cache.get(key)} at CACHE')
-                return self.cache.get(key)
+                self.log.debug(f'{self.cli} {key} at CACHE')
+                return f'get_success {key} {self.cache.get(key)}'
             else:
                 self.log.debug(f'{self.cli}{key} checking STORAGE')
                 value = self.GET_request(key)
@@ -80,11 +74,7 @@ class Client_handler:
 
         elif method == 'delete' and len(args) == 1:
             key = args[0]
-            self.cache.print_cache()
-
-            self.cache.delete(key)
-            self.cache.print_cache()
-
+            self.cache.delete(key) #Todo error, the updated value is in the cache not in the storage
             return self.DELETE_request(key)
 
 
@@ -101,6 +91,7 @@ class Client_handler:
             else:
                 return 'error unknown command!'
 
+
     def PUT_request(self, key, value):
         self.log.debug(f'{self.cli}Request => put {key} {value}')
         try:
@@ -109,7 +100,7 @@ class Client_handler:
                     if db.get(key) == value:
                         self.log.debug(f"{self.cli}{key} |{value} already exists with same values")
                         self.log.info(f'{self.cli}put_not_update {key}')
-                        return f'put_not_update {key}' #Todo creo que esta respuesta me la he inventado
+                        return f'put_update {key}' #Todo creo que esta respuesta me la he inventado
                     else:
                         self.log.debug(f"{self.cli} Key>{key} already exists. Overwriting value.")
                         db[key] = value
@@ -123,6 +114,7 @@ class Client_handler:
         except:
             self.log.info(f'{self.cli}{key}put_error')
             return 'put_error'
+
 
     def GET_request(self, key):
         self.log.debug(f'{self.cli}{key}Request => get {key}')
@@ -141,6 +133,7 @@ class Client_handler:
             self.log.info(f'{self.cli}get_error {key}')
             return f'get_error {key}'
 
+
     def DELETE_request(self, key):  # TODO
         self.log.debug(f'{self.cli}Request => delete {key}')
         # self.cache.print_cache()
@@ -151,12 +144,10 @@ class Client_handler:
                     value = db.get(key)
                     del db[key]
                     self.log.info(f'{self.cli}delete_success {key} {value}')
-                    # self.cache.print_cache()
                     return f'delete_success {key} {value}'
                 else:
                     self.log.debug(f'{self.cli}Key {key} not found')
                     self.log.info(f'{self.cli}delete_error {key}')
-                    # self.cache.print_cache()
                     return f'delete_error {key}'
         except:
             self.log.info(f'{self.cli}delete_error {key}')

@@ -66,7 +66,7 @@ class KVServer:
 
                 self.check_active_clients()
                 if not self.clients_conn and elapsed_time >= self.timeout:
-                    self.log.debug(f'{self.cli} Closing server')
+                    self.log.debug(f'{self.cli} Closing kvserver')
                     break
                 else:
                     # self.log.debug(f'{self.cli} Still active. Reset while.')
@@ -128,15 +128,15 @@ class KVServer:
 # ------------------------------------------------------------------------------------------
 
 def main():
-    parser = argparse.ArgumentParser(description='Load balancer server')
+    parser = argparse.ArgumentParser(description='Load balancer kvserver')
     parser.add_argument('-i', '--id', default=1, type=int, help='Server id')
     parser.add_argument('-a', '--address', default='0.0.0.0', help='Server address')
     parser.add_argument('-p', '--port', default='8000', type=int, help='Server port')
     parser.add_argument('-s', '--cache-strategy', default='LFU', type=str, help='Cache strategy: fifo, lru, lfu')
     parser.add_argument('-c', '--cache-size', default=3, type=int, help='Cache size')
     parser.add_argument('-ll', '--log-level', default='DEBUG', help='Log level:DEBUG or INFO')
-    parser.add_argument('-l', '--log-file', default='server.log', help='Log file')
-    parser.add_argument('-d', '--directory', default='data', type=str, help='Storage directory')
+    parser.add_argument('-l', '--log-file', default='kvserver.log', help='Log file')
+    parser.add_argument('-d', '--directory', default='.', type=str, help='Storage directory')
     # parser.add_argument("-h", "--help", required=True, help="Help")
 
     args = parser.parse_args()

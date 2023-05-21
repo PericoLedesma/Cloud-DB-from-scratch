@@ -1,0 +1,12 @@
+Request: get key3 |Expected: get_error key3 |Server: get_error key3
+Request: get key4 |Expected: get_error key4 |Server: get_error key4
+Request: get key5 |Expected: get_error key5 |Server: get_error key5
+Request: delete key5 |Expected: delete_error key5 |Server: delete_error key5
+Request: put key2 value2 |Expected: put_success key2 |Server: put_success key2
+Request: delete key2 |Expected: delete_success key2 value2 |Server: delete_success key2 value2
+Request: delete key1 |Expected: delete_error key1 |Server: delete_error key1
+Request: delete key1 |Expected: delete_error key1 |Server: delete_error key1
+Request: delete key3 |Expected: delete_error key3 |Server: delete_error key3
+Request: get key1 |Expected: get_error key1 |Server: get_error key1
+Request: put key5 value3 |Expected: put_success key5 |Server: put_success key5
+Request: put key2 value5 |Expected: put_success key2 |Server: put_success key2
