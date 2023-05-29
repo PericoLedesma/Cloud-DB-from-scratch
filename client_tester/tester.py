@@ -2,7 +2,7 @@ import sys
 import socket
 import time
 import pytest
-from test_request_generator import *
+from request_generator import *
 
 
 

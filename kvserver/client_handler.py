@@ -7,15 +7,17 @@ import socket
 
 # ------------------------------------------------------------------------
 class Client_handler:
-    def __init__(self, client_fd, client_id, clients_list, clients_conn, cache_type, cache_cap, lock, logger):
+    def __init__(self, client_fd, client_id, clients_conn, cache_type, cache_cap, lock, logger, storage_dir):
         self.client_id = client_id
         self.cli = f'\t\tHandler{self.client_id}>'
 
         self.client_fd = client_fd
-        self.client_fd.settimeout(10)
+        # self.client_fd.settimeout(100)
+        self.conn_status = True
         self.log = logger
         self.lock = lock
-        self.welcome_msg = f'Connection to KVServer established: /{self.client_fd.getsockname()[0]} / {self.client_fd.getsockname()[1]}'
+        self.storage_dir = storage_dir
+        # self.welcome_msg = f'Connection to KVServer established: /{self.client_fd.getsockname()[0]} / {self.client_fd.getsockname()[1]}'
         self.welcome_msg = 'hello'
 
         clients_conn[client_id] = self
@@ -24,14 +26,15 @@ class Client_handler:
         self.handle_conn()
 
         self.log.info(f'{self.cli} Closing handler ')
-        del clients_conn[client_id]
+
+        clients_conn[client_id] = None
         del self
 
     def handle_conn(self):
         self.log.info(f'{self.cli} Connected')
-        self.handle_response(self.welcome_msg)
+        self.handle_RESPONSE(self.welcome_msg)
 
-        while True:
+        while self.conn_status:
             try:
                 request = self.client_fd.recv(128 * 1024)
                 request = request.replace(b'\\r\\n', b'\r\n')
@@ -40,10 +43,12 @@ class Client_handler:
                 for msg in messages:
                     if msg is None or msg == " " or not msg:
                         break
-                    response = self.handle_request(msg)
-                    self.handle_response(response)
-                    if response == 'End connection':
-                        break
+                    else:
+                        response = self.handle_REQUEST(msg)
+                        self.log.info(f'{self.cli} {response}')
+                        self.handle_RESPONSE(response)
+                        if response == 'End connection':
+                            break
 
             except socket.timeout:
                 self.log.debug(f'{self.cli}Time out client')
@@ -52,7 +57,7 @@ class Client_handler:
         self.client_fd.close()
 
 
-    def handle_request(self, msg):
+    def handle_REQUEST(self, msg):
         method, *args = msg.split()
         self.cache.print_cache()
         if method == 'put' and len(args) > 1:
@@ -77,11 +82,17 @@ class Client_handler:
             self.cache.delete(key) #Todo error, the updated value is in the cache not in the storage
             return self.DELETE_request(key)
 
+        elif method == 'show':
+            self.log.debug(f'{self.cli}Request => show db')
+            return self.print_storage()
+
 
         elif method == 'close':
             self.log.debug(f'{self.cli}Request => close')
-            return 'End connection'
-        else:
+            self.conn_status = False
+            return 'End connection with client'
+
+        else: # ERRORS
             if method == 'put' and len(args) < 2:
                 return 'error not enough arguments'
             elif method == 'get' and len(args) != 1:
@@ -95,42 +106,35 @@ class Client_handler:
     def PUT_request(self, key, value):
         self.log.debug(f'{self.cli}Request => put {key} {value}')
         try:
-            with shelve.open('storage.db', writeback=True) as db:
+            with shelve.open(self.storage_dir, writeback=True) as db:
                 if key in db:
                     if db.get(key) == value:
                         self.log.debug(f"{self.cli}{key} |{value} already exists with same values")
-                        self.log.info(f'{self.cli}put_not_update {key}')
                         return f'put_update {key}' #Todo creo que esta respuesta me la he inventado
                     else:
                         self.log.debug(f"{self.cli} Key>{key} already exists. Overwriting value.")
                         db[key] = value
-                        self.log.info(f'{self.cli}put_update {key}')
                         return f'put_update {key}'
                 else:
                     db[key] = value
                     self.log.debug(f'{self.cli}{key}Data stored: key={key}, value={value}')
-                    self.log.info(f'{self.cli}{key}put_success {key}')
                     return f'put_success {key}'
         except:
-            self.log.info(f'{self.cli}{key}put_error')
             return 'put_error'
 
 
     def GET_request(self, key):
         self.log.debug(f'{self.cli}{key}Request => get {key}')
         try:
-            with shelve.open('storage.db') as db:
+            with shelve.open(self.storage_dir, flag='r') as db:
                 value = db.get(key)
                 if value is not None:
                     self.log.debug(f'{self.cli}Key {key} found. Value {value}')
-                    self.log.info(f'{self.cli}get_sucess {value}')
                     return f'get_success {key} {value}'
                 else:
                     self.log.debug(f'{self.cli}Key {key} not found')
-                    self.log.info(f'{self.cli}get_error {key}')
                     return f'get_error {key}'
         except:
-            self.log.info(f'{self.cli}get_error {key}')
             return f'get_error {key}'
 
 
@@ -138,33 +142,20 @@ class Client_handler:
         self.log.debug(f'{self.cli}Request => delete {key}')
         # self.cache.print_cache()
         try:
-            with shelve.open('storage.db') as db:
+            with shelve.open(self.storage_dir, writeback=True) as db:
                 if key in db:
                     self.log.debug(f'{self.cli}Key {key} found.')
                     value = db.get(key)
                     del db[key]
-                    self.log.info(f'{self.cli}delete_success {key} {value}')
                     return f'delete_success {key} {value}'
                 else:
                     self.log.debug(f'{self.cli}Key {key} not found')
-                    self.log.info(f'{self.cli}delete_error {key}')
                     return f'delete_error {key}'
         except:
-            self.log.info(f'{self.cli}delete_error {key}')
             return f'delete_error {key}'
 
-    def handle_response(self, response): #Back to normal
-        chunk_size = 128 * 1024  # 128 KBytes
-        # Split the message into chunks
-        chunks = [response[i:i + chunk_size] for i in range(0, len(response), chunk_size)]
-
-        # Add a newline character to the last chunk
-        if chunks:
-            chunks[-1] += " \r\n"
-        # print('number of chunks: ', chunks)
-        # Send each chunk
-        for chunk in chunks:
-            self.client_fd.sendall(bytes(chunk, encoding='utf-8'))
+    def handle_RESPONSE(self, response):
+        self.client_fd.sendall(bytes(response, encoding='utf-8'))
 
 
     def cache_init(self, cache_cap, cache_type):
@@ -176,3 +167,18 @@ class Client_handler:
             self.cache = LFUCache(cache_cap)
         else:
             self.log.info(f'{self.cli}error cache selection')
+
+    def print_storage(self):
+        with shelve.open(self.storage_dir, flag='r') as db:
+            message = f"\n------------------\n"
+            message += f'All key-value pairs\n'
+
+            counter = 1
+
+            for key, value in db.items():
+                message +=f"Item {counter}==> {key} | {value}\n"
+                counter += 1
+            message += f"------------------\n"
+            return message
+
+

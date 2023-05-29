@@ -1,0 +1,9 @@
+2023-05-25 17:56:57,870 - INFO - KVServer[1]>---- KVSSERVER 1 ACTIVE -----
+2023-05-25 17:56:57,870 - DEBUG - KVServer[1]>Listening on 127.0.0.1:8001
+2023-05-25 17:56:59,873 - DEBUG - KVServer[1]> Active clients: 0, Ids: []
+2023-05-25 17:57:01,874 - DEBUG - KVServer[1]> Active clients: 0, Ids: []
+2023-05-25 17:57:03,878 - DEBUG - KVServer[1]> Active clients: 0, Ids: []
+2023-05-25 17:57:05,882 - DEBUG - KVServer[1]> Active clients: 0, Ids: []
+2023-05-25 17:57:07,884 - DEBUG - KVServer[1]> Active clients: 0, Ids: []
+2023-05-25 17:57:07,884 - DEBUG - KVServer[1]> Closing kvserver
+2023-05-25 17:57:07,884 - INFO - KVServer[1]>---- KVSSERVER 1 SLEEP -----
