@@ -1,2 +1,7 @@
-2023-05-26 13:19:11,437 - INFO - KVServer[0]>---- KVSSERVER 0 ACTIVE -----
-2023-05-26 13:19:23,451 - INFO - KVServer[0]>---- KVSSERVER 0 SLEEP -----
+2023-05-30 09:46:23,685 - INFO - 	[KVServer][0]>---- KVSSERVER 0 ACTIVE -----
+2023-05-30 09:46:41,699 - DEBUG - 	[KVServer][0]>Listening on 127.0.0.1:8000
+2023-05-30 09:46:44,704 - DEBUG - 	[KVServer][0]> Active clients: 0, Ids: []
+2023-05-30 09:46:47,707 - DEBUG - 	[KVServer][0]> Active clients: 0, Ids: []
+2023-05-30 09:46:52,709 - DEBUG - 	[KVServer][0]> Active clients: 0, Ids: []
+2023-05-30 09:46:52,710 - DEBUG - 	[KVServer][0]> Closing kvserver
+2023-05-30 09:46:52,710 - INFO - 	[KVServer][0]>---- KVSSERVER 0 SLEEP -----

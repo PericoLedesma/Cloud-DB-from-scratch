@@ -1,4 +1,6 @@
 from client_handler import *
+from ecshandler import *
+
 import time
 import os
 import socket
@@ -12,11 +14,11 @@ class KVServer:
     def __init__(self, host, port, ecs_addr, id, cache_strategy, cache_size, log_level, log_file, directory, max_conn):
         # Server parameters
         self.id = id
-        self.cli = f'KVServer[{self.id}]>'
+        self.cli = f'\t[KVServer][{self.id}]>'
 
         self.host = host
         self.port = port
-        self.ecs_addr = ecs_addr
+
         self.max_conn = max_conn
         self.timeout = 10
         self.lock = threading.Lock()
@@ -35,40 +37,22 @@ class KVServer:
 
         print(f'{self.cli}---- KVSSERVER {id} ACTIVE -----')
         self.log.info(f'{self.cli}---- KVSSERVER {id} ACTIVE -----')
-        self.connect_to_ECS()
-        # self.listen_to_connections()
+
+        self.ecs = ECS_handler(ecs_addr)
+        time.sleep(3)
+        print(f'{self.cli} Sending msg')
+        self.ecs.handle_RESPONSE(f'Hi from KVSSERVER{id}')
+        time.sleep(3)
+        print(f'{self.cli} Sending msg')
+        self.ecs.handle_RESPONSE(f'Second msg')
+        time.sleep(12)
+
+
+        self.listen_to_connections()
+
         self.log.info(f'{self.cli}---- KVSSERVER {id} SLEEP -----')
         print(f'{self.cli}---- KVSSERVER {id} SLEEP -----')
 
-
-    def connect_to_ECS(self):
-        print(f'{self.cli}Connecting to bootstrap.Address {self.ecs_addr}')
-        RETRY_INTERVAL = 3
-        host = "127.0.0.1"
-        port = 8000
-        while True:
-            try:
-                self.ecs_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                ecs_address, ecs_port = self.ecs_addr.split(':')
-                # self.ecs_sock.connect((ecs_address, int(ecs_port)))
-                self.ecs_sock.connect((host, port))
-                # Wait until the connection is established
-                while True:
-                    if self.ecs_sock.fileno() != -1:
-                        break
-
-                print(f'{self.cli}Connected to {host}:{port}')
-                self.ecs_sock.sendall(bytes('HI ECS', encoding='utf-8'))
-                print(f'{self.cli}MESSAGE SENT to {host}:{port}')
-                break
-            except socket.error as e:
-                print(f'{self.cli}Connection error:{e}')
-                print(f'{self.cli}Retrying in {RETRY_INTERVAL} seconds...')
-                time.sleep(RETRY_INTERVAL)
-            finally:
-                # Close the client socket
-                self.ecs_sock.close()
-                print(f'{self.cli}Client socket closed')
 
     def listen_to_connections(self):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
@@ -84,18 +68,26 @@ class KVServer:
 
             while True:
                 print('Waiting ')
-                ready_sockets, _, _ = select.select([server], [], [], 2)
-                print('done ')
-                if ready_sockets:
-                    conn, addr = server.accept()
-                    if self.check_active_clients() < self.max_conn:
-                        self.log.info(f'{self.cli}Connection accepted:, {addr}')
-                        client_thread = threading.Thread(target=self.init_client_handler, args=(conn, addr))
-                        client_thread.start()
+                time.sleep(3)
+                ready_sockets, _, _ = select.select([server] + [self.ecs.sock], [], [], 2)
+
+                for sock in ready_sockets:
+                    if sock is server:
+                        conn, addr = sock.accept()
+                        if self.check_active_clients() < self.max_conn:
+                            self.log.info(f'{self.cli}Connection accepted:, {addr}')
+                            client_thread = threading.Thread(target=self.init_client_handler, args=(conn, addr))
+                            client_thread.start()
+                        else:
+                            self.log.info(f'{self.cli} Max number of clients ')
+                            # todo
+                        start_time = time.time()
+                    if sock == self.ecs.sock:
+                        self.ecs.handle_REQUEST()
+
                     else:
-                        self.log.info(f'{self.cli} Max number of clients ')
-                        # todo
-                    start_time = time.time()
+                        print('Chechk this error')
+
 
                 elapsed_time = time.time() - start_time
                 print('Listening.Checking exit conditions(clients, time)')
@@ -140,9 +132,11 @@ class KVServer:
         self.log.debug(f'{self.cli} Active clients: {count}, Ids: {active_ids}')
         return count
 
+
     def init_storage(self):
         self.storage_dir = os.path.join(self.directory, f'kserver{self.id}_storage')
         shelve.open(filename=self.storage_dir)
+
 
     def init_log(self, log_level, log_file, directory):
         if directory is None or directory == '.':
@@ -186,7 +180,7 @@ def main():
 
     args = parser.parse_args()
 
-    print(f'ID {args.id}, PORT {args.port}')
+    # print(f'ID {args.id}, PORT {args.port}')
 
     KVServer(host=args.address,
               port=args.port,
