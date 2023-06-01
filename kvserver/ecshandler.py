@@ -1,13 +1,14 @@
 import socket
 import time
+import json
 
 class ECS_handler:
-    def __init__(self, addr):
+    def __init__(self, addr, cli):
         self.addr, self.port = addr.split(':')
         self.addr = self.addr.replace(" ", "")
         self.port = int(self.port)
 
-        self.cli = f'\t[ECS handler]>'
+        self.cli = f'{cli}[ECS handler]>'
 
         self.connect_to_ECS()
 
@@ -31,20 +32,29 @@ class ECS_handler:
 
 
     def handle_REQUEST(self):
-        print(f'{self.cli}Handling the request')
+        print(f'{self.cli}Handling the request of ECS')
         try:
             data = self.sock.recv(128 * 1024)
             if data:
+                recv_data = json.loads(data.decode('utf-8'))
+                parsed_data = json.loads(recv_data)
+                formatted_json = json.dumps(parsed_data, indent=4)
                 print(f'{self.cli}Received message: {data.decode()}')
+            else:
+                print(f'{self.cli}No data')
 
         except ConnectionResetError:
             print(f'{self.cli}EXCEPTION: Connection reset by peer.')
 
-        except socket.error as e:
-            print(f'{self.cli}EXCEPTION: Socket error: {e}')
+        except:
+            print(f'{self.cli}EXCEPTION: Socket error. Check exception')
 
 
+    def handle_json_RESPONSE(self, response):
 
+
+        json_data = json.dumps(response)
+        self.sock.sendall(bytes(json_data, encoding='utf-8'))
 
     def handle_RESPONSE(self, response):
         self.sock.sendall(bytes(response, encoding='utf-8'))

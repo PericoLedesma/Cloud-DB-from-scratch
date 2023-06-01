@@ -3,6 +3,7 @@ import shelve
 import os
 from cache_classes import *
 import socket
+import json
 
 
 # ------------------------------------------------------------------------

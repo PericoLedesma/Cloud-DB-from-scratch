@@ -14,10 +14,20 @@ class KVServer:
     def __init__(self, host, port, ecs_addr, id, cache_strategy, cache_size, log_level, log_file, directory, max_conn):
         # Server parameters
         self.id = id
-        self.cli = f'\t[KVServer][{self.id}]>'
+        self.name = f'kvserver{id}'
 
         self.host = host
         self.port = port
+        self.ecs_addr = ecs_addr
+
+        self.data = {
+            'id': self.id,
+            'name': self.name,
+            'host': self.host,
+            'port': self.port,
+        }
+
+        self.cli = f'\t[{self.name}]>'
 
         self.max_conn = max_conn
         self.timeout = 10
@@ -31,21 +41,26 @@ class KVServer:
         self.clients_conn = {key: None for key in range(1, self.max_conn + 1)}
         self.active_clients = int
 
+        # START
         self.init_log(log_level, log_file, directory)
         self.init_storage()
-
 
         print(f'{self.cli}---- KVSSERVER {id} ACTIVE -----')
         self.log.info(f'{self.cli}---- KVSSERVER {id} ACTIVE -----')
 
-        self.ecs = ECS_handler(ecs_addr)
-        time.sleep(3)
-        print(f'{self.cli} Sending msg')
-        self.ecs.handle_RESPONSE(f'Hi from KVSSERVER{id}')
-        time.sleep(3)
-        print(f'{self.cli} Sending msg')
-        self.ecs.handle_RESPONSE(f'Second msg')
-        time.sleep(12)
+
+        self.ecs = ECS_handler(ecs_addr, self.cli)
+        print(f'{self.cli}Sending personal data to ECS')
+        self.ecs.handle_json_RESPONSE(self.data)
+
+
+        # time.sleep(3)
+        # print(f'{self.cli} Sending ')
+        # self.ecs.handle_RESPONSE(f'Hi from KVSSERVER{id}')
+        # time.sleep(3)
+        # print(f'{self.cli} Sending msg')
+        # self.ecs.handle_RESPONSE(f'Second msg')
+        # time.sleep(12)
 
 
         self.listen_to_connections()
@@ -67,32 +82,49 @@ class KVServer:
             start_time = time.time()
 
             while True:
-                print('Waiting ')
-                time.sleep(3)
-                ready_sockets, _, _ = select.select([server] + [self.ecs.sock], [], [], 2)
+                time.sleep(2)
+                print(f'{self.cli}->Listening...')
+                readable, writable, errors = select.select([server] + [self.ecs.sock], [], [], 10)
+                print(f'{self.cli}ECS:{len({self.ecs.sock})}|Readable:{len(readable)}|Writable:{len(writable)}|Errors:{len(errors)}')
 
-                for sock in ready_sockets:
+                for sock in readable:
                     if sock is server:
                         conn, addr = sock.accept()
-                        if self.check_active_clients() < self.max_conn:
-                            self.log.info(f'{self.cli}Connection accepted:, {addr}')
-                            client_thread = threading.Thread(target=self.init_client_handler, args=(conn, addr))
-                            client_thread.start()
-                        else:
-                            self.log.info(f'{self.cli} Max number of clients ')
-                            # todo
+                        print(f'{self.cli}Connection accepted: {addr}')
+                        self.log.info(f'{self.cli}Connection accepted:, {addr}')
+
+                        client_thread = threading.Thread(target=self.init_client_handler, args=(conn, addr))
+                        client_thread.start()
+
+                        print(f'{self.cli}Timeout restarted')
                         start_time = time.time()
-                    if sock == self.ecs.sock:
+
+                    elif sock == self.ecs.sock:
+                        print(f'{self.cli}Message from ECS. Msg addr: {sock.getsockname()}.| Real: {self.ecs_addr}')
                         self.ecs.handle_REQUEST()
+                        print(f'{self.cli}Timeout restarted')
+                        start_time = time.time()
 
                     else:
-                        print('Chechk this error')
+                        try:
+                            if sock.getpeername() is not None:
+                                print(f'{self.cli}Socket checked conn. Socket not used. CHECK THIS END')
+                                print(f'{self.cli}Timeout restarted')
+                                start_time = time.time()
+                            else:
+                                raise socket.error('No connection. Delete socket')
+
+                        except socket.error as e:
+                            print(f"Exception:{e}. Deleting socket")
+                            sock.close()
+
+                        except:
+                            print("Socket is not connected to a remote endpoint. Deleting socket")
+                            sock.close()
+                        print('Check this error. Socket out of list')
 
 
-                elapsed_time = time.time() - start_time
-                print('Listening.Checking exit conditions(clients, time)')
-
-                if not self.check_active_clients() and elapsed_time >= self.timeout:
+                if not self.check_active_clients() and (time.time() - start_time) >= self.timeout:
                     self.log.debug(f'{self.cli} Closing kvserver')
                     break
                 else:
@@ -169,7 +201,7 @@ def main():
     # parser.add_argument('-a', '--address', default='0.0.0.0', help='Server address')
     parser.add_argument('-a', '--address', default='127.0.0.1', help='Server address')
     parser.add_argument('-b', '--ecs-addr', default='127.0.0.1:8000', help='ECS Server address')
-    parser.add_argument('-p', '--port', default='8000', type=int, help='Server port')
+    parser.add_argument('-p', '--port', default='2000', type=int, help='Server port')
     parser.add_argument('-s', '--cache-strategy', default='LFU', type=str, help='Cache strategy: fifo, lru, lfu')
     parser.add_argument('-c', '--cache-size', default=3, type=int, help='Cache size')
     parser.add_argument('-ll', '--log-level', default='DEBUG', help='Log level:DEBUG or INFO')
