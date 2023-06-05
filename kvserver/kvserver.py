@@ -20,17 +20,12 @@ class KVServer:
         self.port = port
         self.ecs_addr = ecs_addr
 
-        self.data = {
-            'id': self.id,
-            'name': self.name,
-            'host': self.host,
-            'port': self.port,
-        }
+        self.data = {'id': self.id, 'name': self.name, 'host': self.host, 'port': self.port}
 
         self.cli = f'\t[{self.name}]>'
 
         self.max_conn = max_conn
-        self.timeout = 10
+        self.timeout = 30
         self.lock = threading.Lock()
 
         #Cache
@@ -49,9 +44,8 @@ class KVServer:
         self.log.info(f'{self.cli}---- KVSSERVER {id} ACTIVE -----')
 
 
-        self.ecs = ECS_handler(ecs_addr, self.cli)
-        print(f'{self.cli}Sending personal data to ECS')
-        self.ecs.handle_json_RESPONSE(self.data)
+        self.ecs = ECS_handler(ecs_addr, self.cli, self.data)
+
 
 
         # time.sleep(3)
@@ -101,9 +95,7 @@ class KVServer:
 
                     elif sock == self.ecs.sock:
                         print(f'{self.cli}Message from ECS. Msg addr: {sock.getsockname()}.| Real: {self.ecs_addr}')
-                        self.ecs.handle_REQUEST()
-                        print(f'{self.cli}Timeout restarted')
-                        start_time = time.time()
+                        self.ecs.handle_RECV(start_time)
 
                     else:
                         try:

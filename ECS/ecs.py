@@ -16,30 +16,22 @@ class ECS:
         self.cli = f'[ECS]>'
         self.host = host
         self.port = port
-
-
-        self.kv_sockets = []
-        self.kv_sockets_e = []
-
         self.timeout = 20
 
-
         self.num_kvservers = num_kvservers
-        self.server_names = {}
-
-
+        self.kvs_sockets = []
+        self.kvs_data = {}
 
         self.server_bootstrap()
-
         thread = threading.Thread(target=self.listen_to_kvservers())
         thread.start()
 
         print('-----lines continuees---')
 
         # time.sleep(5)
-        # print(f'{self.cli}Sending msg')
-        # for sock in self.kv_sockets:
-        #     self.handle_RESPONSE(f'Hey kvserver', sock)
+        print(f'{self.cli}Sending msg')
+        for sock in self.kvs_sockets:
+            self.handle_RESPONSE(f'Hey kvserver', sock)
         #
         # time.sleep(10)
         # print(f'{self.cli}Sending msg')
@@ -52,7 +44,6 @@ class ECS:
     def handle_RESPONSE(self, response, sock):
         sock.sendall(bytes(response, encoding='utf-8'))
 
-
     def listen_to_kvservers(self):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
             # server.settimeout(5)
@@ -64,23 +55,25 @@ class ECS:
 
             while True:
                 time.sleep(2)
-                print(f'{self.cli}->Listening..... KVservers:{self.kv_sockets}')
-                readable, writable, errors = select.select([server] + self.kv_sockets, [], self.kv_sockets_e, 10)
-                print(f'{self.cli}Kvservers:{len(self.kv_sockets)}|Readable:{len(readable)}|Writable:{len(writable)}|Errors:{len(errors)}')
+                print(f'{self.cli}->Listening.....')
+                readable, writable, errors = select.select([server] + self.kvs_sockets, [], [], 10)
+                print(f'{self.cli}Kvservers:{len(self.kvs_sockets)}|Readable:{len(readable)}|Writable:{len(writable)}|Errors:{len(errors)}')
 
                 for sock in readable:
                     if sock is server:
                         conn, addr = sock.accept()
-                        print(f'{self.cli}Connection accepted: {addr}')
-                        self.kv_sockets.append(conn)
-                        self.handle_REQUEST(conn)
+                        self.kvs_sockets.append(conn)
+                        print(f'{self.cli}Connection accepted[{addr}]. Asking for data')
+                        self.handle_json_RESPONSE(conn, 'kvserver_data')
+                        self.handle_RESPONSE(f'Hey kvserver', conn)
+
                         print(f'{self.cli}Timeout restarted')
                         start_time = time.time()
 
-                    elif sock == self.kv_sockets:
+                    elif sock == self.kvs_sockets:
                         print(f'{self.cli}Socket from kvstore store')
-                        try: self.handle_REQUEST(sock)
-                        except: self.kv_sockets.remove(sock)
+                        try: self.handle_RECV(sock)
+                        except: self.kvs_sockets.remove(sock)
                         print(f'{self.cli}Timeout restarted')
                         start_time = time.time()
 
@@ -88,7 +81,8 @@ class ECS:
                         print(f'{self.cli}Socket checked conn of socket out of list.')
                         try:
                             if sock.getpeername() is not None:
-                                self.handle_REQUEST(sock)
+                                print(f'{self.cli}Msg from other socket?')
+                                self.handle_RECV(sock)
                                 print(f'{self.cli}Timeout restarted')
                                 start_time = time.time()
                             else:
@@ -97,9 +91,9 @@ class ECS:
                             print(f'{self.cli}Exception outside: {e}. Closing socket')
                             sock.close()
 
-                for s in self.kv_sockets:
+                for s in self.kvs_sockets:
                     if sock.fileno() < 0:
-                        self.kv_sockets.remove(sock)
+                        self.kvs_sockets.remove(sock)
                         print(f'{self.cli}Deleted socket from list of kvservers')
 
                 if (time.time() - start_time) >= self.timeout:
@@ -107,31 +101,56 @@ class ECS:
                     break
 
 
-    def handle_REQUEST(self, sock):
+    def handle_RECV(self, sock):
         print(f'{self.cli}Handling the request')
         try:
             data = sock.recv(128 * 1024).decode()
-            if data:
-                recv_data = json.loads(data)
-                formatted_json = json.dumps(recv_data, indent=4)
-                print(f'{self.cli}Received message: {formatted_json}')
-
+            if data is not None and data != 'null':
+                print(f'{self.cli}Received message: {data}')
+                self.handle_REQUEST(data)
             else:
                 print(f'{self.cli}No data')
                 raise Exception('Error while handling the request. No data. Closing socket as')
-
         except ConnectionResetError:
             raise Exception('Error while handling the request. Connection reset by peer')
         except:
             raise Exception('Error while handling the request.')
 
-    def store_kvserver(self):
-        my_dict = {('id', '1'): {'name': f'kvserver' , 'vnodes':[list]}}
 
-        # for num in range(0, num + 1):
-        #     key = ('id', f'kvserver{num}')
-        #     map_to_ring()
-        #     value = ('nodes',))
+
+    def handle_REQUEST(self, data):
+        recv_data = json.loads(data)
+        method = recv_data.get('request')
+        data = recv_data.get('data')
+
+        formatted_json = json.dumps(recv_data, indent=4)
+
+        if method == 'kvserver_data':
+            self.kvs_data[data.get('id')] = {
+                'name': data.get('name'),
+                'host': data.get('host'),
+                'port': data.get('port')
+            }
+            print('Check of data stored', self.kvs_data)
+        else:
+             print(f'{self.cli}error unknown command!')
+
+    def handle_json_RESPONSE(self, sock, method):
+        try:
+            json_data = json.dumps(self.messages_templates(method))
+            sock.sendall(bytes(json_data, encoding='utf-8'))
+            print(f'{self.cli}Resquest [{method}] sent')
+        except:
+            raise Exception('Error while sending the data.')
+
+    def messages_templates(self, method):
+        if method == 'kvserver_data':
+            return  {
+                'request': 'kvserver_data',
+                'data': {
+                }
+            }
+
 
     def server_bootstrap(self):
         print(f'{self.cli}Server bootstrap...')
