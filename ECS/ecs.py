@@ -31,7 +31,7 @@ class ECS:
         # time.sleep(5)
         print(f'{self.cli}Sending msg')
         for sock in self.kvs_sockets:
-            self.handle_RESPONSE(f'Hey kvserver', sock)
+            self.handle_RESPONSE(f' BYE KvSERVER', sock)
         #
         # time.sleep(10)
         # print(f'{self.cli}Sending msg')
@@ -42,7 +42,7 @@ class ECS:
 
 
     def handle_RESPONSE(self, response, sock):
-        sock.sendall(bytes(response, encoding='utf-8'))
+        sock.sendall(bytes(f'{response}\r\n', encoding='utf-8'))
 
     def listen_to_kvservers(self):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
@@ -138,17 +138,16 @@ class ECS:
     def handle_json_RESPONSE(self, sock, method):
         try:
             json_data = json.dumps(self.messages_templates(method))
-            sock.sendall(bytes(json_data, encoding='utf-8'))
-            print(f'{self.cli}Resquest [{method}] sent')
+            sock.sendall(bytes(f'{json_data}\r\n', encoding='utf-8'))
+            # sock.sendall(bytes(json_data, encoding='utf-8'))
+            print(f'{self.cli}Resquest sent: [{method}]')
         except:
             raise Exception('Error while sending the data.')
 
     def messages_templates(self, method):
         if method == 'kvserver_data':
-            return  {
-                'request': 'kvserver_data',
-                'data': {
-                }
+            return {
+                'request': 'kvserver_data'
             }
 
 

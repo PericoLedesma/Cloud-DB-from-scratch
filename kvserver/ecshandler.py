@@ -32,35 +32,51 @@ class ECS_handler:
         print(f'{self.cli}Handling the request of ECS')
 
         try:
-            data = self.sock.recv(128 * 1024).decode()
-            if data is not None and data != 'null':
+            data = self.sock.recv(128 * 1024)
+            print(f'{self.cli}Received data before decode: {repr(data)}')
 
-                print(f'{self.cli}Received message: {repr(data)}')
+            data = data.decode()
+            if data is not None and data != 'null' and data !='':
                 self.handle_REQUEST(data)
 
                 print(f'{self.cli}Timeout restarted')
                 start_time = time.time()
             else:
                 print(f'{self.cli}No data')
-                raise Exception('Error while handling the request. No data. Closing socket as')
+                raise Exception('Error while handling the request. No data. Closing socket')
 
         except ConnectionResetError:
             print(f'{self.cli}EXCEPTION: Connection reset by peer.')
-        except:
-            print(f'{self.cli}EXCEPTION: Socket error. Check exception')
-
+        except Exception as e:  # work on python 2.x
+            print(f'{self.cli}Failed process received data: {e}')
 
     def handle_REQUEST(self, data):
-        recv_data = json.loads(data)
-        method = recv_data.get('request')
-        data = recv_data.get('data')
+        data = data.replace('\\r\\n', '\r\n')
+        print(f'{self.cli}Received data after replace and decoded: {repr(data)}')
 
-        formatted_json = json.dumps(recv_data, indent=4)
+        messages = data.split('\r\n')
 
-        if method == 'kvserver_Data':
-            self.handle_json_RESPONSE(method)
-        else:
-            print(f'{self.cli}error unknown command!')
+        for msg in messages:
+            if msg is None or msg == " " or not msg:
+                break
+            else:
+                print(f'{self.cli}Received message: {repr(msg)}')
+
+                recv_data = json.loads(msg)
+
+                try:
+                    method = recv_data.get('request')
+                except:
+                    print(f'{self.cli}error unknown command2!')
+
+
+                # data = recv_data.get('data')
+                formatted_json = json.dumps(recv_data, indent=4)
+
+                if method == 'kvserver_data':
+                    self.handle_json_RESPONSE(method)
+                else:
+                    print(f'{self.cli}error unknown command!')
 
 
     def handle_json_RESPONSE(self, method):
