@@ -25,7 +25,7 @@ class KVServer:
         self.cli = f'\t[{self.name}]>'
 
         self.max_conn = max_conn
-        self.timeout = 30
+        self.timeout = 20
         self.lock = threading.Lock()
 
         #Cache
@@ -40,7 +40,7 @@ class KVServer:
         self.init_log(log_level, log_file, directory)
         self.init_storage()
 
-        print(f'{self.cli}---- KVSSERVER {id} ACTIVE -----')
+        # print(f'{self.cli}---- KVSSERVER {id} ACTIVE -----')
         self.log.info(f'{self.cli}---- KVSSERVER {id} ACTIVE -----')
 
 
@@ -94,7 +94,7 @@ class KVServer:
                         start_time = time.time()
 
                     elif sock == self.ecs.sock:
-                        print(f'{self.cli}Message from ECS. Msg addr: {sock.getsockname()}.| Real: {self.ecs_addr}')
+                        print(f'{self.cli}Message from ECS..')
                         self.ecs.handle_RECV(start_time)
 
                     else:
