@@ -8,16 +8,17 @@ import json
 
 # ------------------------------------------------------------------------
 class Client_handler:
-    def __init__(self, client_fd, client_id, clients_conn, cache_type, cache_cap, lock, logger, storage_dir):
+    def __init__(self, client_fd, client_id, clients_conn, cache_type, cache_cap, lock, storage_dir, printer_config):
         self.client_id = client_id
-        self.cli = f'\t\tHandler{self.client_id}>'
+        self.cli = f'[Handler{self.client_id}]>'
+        self.print_cnfig = printer_config
 
         self.client_fd = client_fd
         # self.client_fd.settimeout(100)
         self.conn_status = True
-        self.log = logger
         self.lock = lock
         self.storage_dir = storage_dir
+
         # self.welcome_msg = f'Connection to KVServer established: /{self.client_fd.getsockname()[0]} / {self.client_fd.getsockname()[1]}'
         self.welcome_msg = 'hello'
 
@@ -26,35 +27,38 @@ class Client_handler:
         self.cache_init(cache_cap, cache_type)
         self.handle_conn()
 
-        self.log.info(f'{self.cli} Closing handler ')
-
         clients_conn[client_id] = None
         del self
 
     def handle_conn(self):
-        self.log.info(f'{self.cli} Connected')
+        self.kvprint(f' Connected')
         self.handle_RESPONSE(self.welcome_msg)
 
         while self.conn_status:
             try:
-                request = self.client_fd.recv(128 * 1024)
-                request = request.replace(b'\\r\\n', b'\r\n')
-                messages = request.decode().split('\r\n')
+                data = self.client_fd.recv(128 * 1024)
+                if data:
+                    request = data.replace(b'\\r\\n', b'\r\n')
+                    messages = request.decode().split('\r\n')
 
-                for msg in messages:
-                    if msg is None or msg == " " or not msg:
-                        break
-                    else:
-                        response = self.handle_REQUEST(msg)
-                        self.log.info(f'{self.cli} {response}')
-                        self.handle_RESPONSE(response)
-                        if response == 'End connection':
+                    for msg in messages:
+                        if msg is None or msg == " " or not msg:
                             break
+                        else:
+                            response = self.handle_REQUEST(msg)
+                            self.kvprint(f' {response}')
+                            self.handle_RESPONSE(response)
+                            if response == 'End connection':
+                                break
+                else:
+                    self.kvprint(f'No data --> Closing socket', c='r')
+                    break
 
             except socket.timeout:
-                self.log.debug(f'{self.cli}Time out client')
+                self.kvprint(f'Time out client --> Closing socket', c='r')
                 break
-        self.log.debug(f'{self.cli} End connection')
+            except Exception as e:
+                self.kvprint(f'Exception: {e} --> Closing socket', c='r')
         self.client_fd.close()
 
 
@@ -70,10 +74,10 @@ class Client_handler:
         elif method == 'get' and len(args) == 1:
             key = args[0]
             if self.cache.get(key):
-                self.log.debug(f'{self.cli} {key} at CACHE')
+                self.kvprint(f' {key} at CACHE')
                 return f'get_success {key} {self.cache.get(key)}'
             else:
-                self.log.debug(f'{self.cli}{key} checking STORAGE')
+                self.kvprint(f'{key} checking STORAGE')
                 value = self.GET_request(key)
                 self.cache.put(key, value)
                 return value
@@ -84,12 +88,11 @@ class Client_handler:
             return self.DELETE_request(key)
 
         elif method == 'show':
-            self.log.debug(f'{self.cli}Request => show db')
+            self.kvprint(f'Request => show db')
             return self.print_storage()
 
-
         elif method == 'close':
-            self.log.debug(f'{self.cli}Request => close')
+            self.kvprint(f'Request => close')
             self.conn_status = False
             return 'End connection with client'
 
@@ -105,52 +108,52 @@ class Client_handler:
 
 
     def PUT_request(self, key, value):
-        self.log.debug(f'{self.cli}Request => put {key} {value}')
+        self.kvprint(f'Request => put {key} {value}')
         try:
             with shelve.open(self.storage_dir, writeback=True) as db:
                 if key in db:
                     if db.get(key) == value:
-                        self.log.debug(f"{self.cli}{key} |{value} already exists with same values")
+                        self.kvprint(f'{key} |{value} already exists with same values')
                         return f'put_update {key}' #Todo creo que esta respuesta me la he inventado
                     else:
-                        self.log.debug(f"{self.cli} Key>{key} already exists. Overwriting value.")
+                        self.kvprint(f' Key>{key} already exists. Overwriting value.')
                         db[key] = value
                         return f'put_update {key}'
                 else:
                     db[key] = value
-                    self.log.debug(f'{self.cli}{key}Data stored: key={key}, value={value}')
+                    self.kvprint(f'{key}Data stored: key={key}, value={value}')
                     return f'put_success {key}'
         except:
             return 'put_error'
 
 
     def GET_request(self, key):
-        self.log.debug(f'{self.cli}{key}Request => get {key}')
+        self.kvprint(f'{key}Request => get {key}')
         try:
             with shelve.open(self.storage_dir, flag='r') as db:
                 value = db.get(key)
                 if value is not None:
-                    self.log.debug(f'{self.cli}Key {key} found. Value {value}')
+                    self.kvprint(f'Key {key} found. Value {value}')
                     return f'get_success {key} {value}'
                 else:
-                    self.log.debug(f'{self.cli}Key {key} not found')
+                    self.kvprint(f'Key {key} not found')
                     return f'get_error {key}'
         except:
             return f'get_error {key}'
 
 
     def DELETE_request(self, key):  # TODO
-        self.log.debug(f'{self.cli}Request => delete {key}')
+        self.kvprint(f'Request => delete {key}')
         # self.cache.print_cache()
         try:
             with shelve.open(self.storage_dir, writeback=True) as db:
                 if key in db:
-                    self.log.debug(f'{self.cli}Key {key} found.')
+                    self.kvprint(f'Key {key} found.')
                     value = db.get(key)
                     del db[key]
                     return f'delete_success {key} {value}'
                 else:
-                    self.log.debug(f'{self.cli}Key {key} not found')
+                    self.kvprint(f'Key {key} not found')
                     return f'delete_error {key}'
         except:
             return f'delete_error {key}'
@@ -167,7 +170,7 @@ class Client_handler:
         elif cache_type == 'LFU':
             self.cache = LFUCache(cache_cap)
         else:
-            self.log.info(f'{self.cli}error cache selection')
+            self.kvprint(f'error cache selection')
 
     def print_storage(self):
         with shelve.open(self.storage_dir, flag='r') as db:
@@ -177,9 +180,26 @@ class Client_handler:
             counter = 1
 
             for key, value in db.items():
-                message +=f"Item {counter}==> {key} | {value}\n"
+                message += f"Item {counter}==> {key} | {value}\n"
                 counter += 1
             message += f"------------------\n"
             return message
 
+    def kvprint(self, *args, c=None, log='d'):
+        COLORS = {
+            'r': '\033[91m',
+            'g': '\033[92m',
+            'y': '\033[93m',
+            'b': '\033[94m',
+            'reset': '\033[0m'
+        }
+        c = self.print_cnfig[1] if c is None else COLORS[c]
 
+        message = ' '.join(str(arg) for arg in args)
+        message = c + self.print_cnfig[0] + self.cli + message + COLORS['reset']
+        print(message)
+
+        if log == 'd':
+            self.print_cnfig[2].debug(f'{self.print_cnfig[0]}{self.cli}{message}')
+        if log == 'i':
+            self.print_cnfig[2].info(f'{self.print_cnfig[0]}|{self.cli}{message}')

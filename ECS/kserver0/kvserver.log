@@ -1,1 +1,10 @@
-2023-06-06 23:48:09,123 - INFO - 	[kvserver0]>---- KVSSERVER 0 ACTIVE -----
+2023-06-08 13:46:48,840 - DEBUG - 	[kvserver0]>[38;5;163m	[kvserver0]>---- KVSSERVER 0 ACTIVE -----[0m
+2023-06-08 13:46:48,840 - DEBUG - 	[kvserver0]>[ECS handler]>[38;5;163m	[kvserver0]>[ECS handler]>Connecting to bootstrap [('127.0.0.1', 9000)][0m
+2023-06-08 13:46:48,841 - DEBUG - 	[kvserver0]>[ECS handler]>[38;5;163m	[kvserver0]>[ECS handler]>Connected to ECS. My addr: 127.0.0.1:53101[0m
+2023-06-08 13:46:48,841 - DEBUG - 	[kvserver0]>[38;5;163m	[kvserver0]>Listening on 127.0.0.1:3000[0m
+2023-06-08 13:46:50,844 - DEBUG - 	[kvserver0]>[38;5;163m	[kvserver0]>->Listening...[0m
+2023-06-08 13:46:50,844 - DEBUG - 	[kvserver0]>[38;5;163m	[kvserver0]>ECS:1|Readable:1[0m
+2023-06-08 13:46:50,844 - INFO - 	[kvserver0]>[38;5;163m	[kvserver0]> Message from ECS..[0m
+2023-06-08 13:46:50,845 - DEBUG - 	[kvserver0]>[ECS handler]>[38;5;163m	[kvserver0]>[ECS handler]>Handling the recv of ECS[0m
+2023-06-08 13:46:50,845 - DEBUG - 	[kvserver0]>[ECS handler]>[38;5;163m	[kvserver0]>[ECS handler]>Received message: '{"request": "kvserver_data"}'[0m
+2023-06-08 13:46:50,845 - DEBUG - 	[kvserver0]>[38;5;163m	[kvserver0]> Active clients: 0, Ids: [][0m

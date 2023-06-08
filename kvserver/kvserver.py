@@ -8,7 +8,7 @@ import threading
 import argparse
 import logging
 import select
-
+import random
 
 class KVServer:
     def __init__(self, host, port, ecs_addr, id, cache_strategy, cache_size, log_level, log_file, directory, max_conn):
@@ -23,9 +23,10 @@ class KVServer:
         self.data = {'id': self.id, 'name': self.name, 'host': self.host, 'port': self.port}
 
         self.cli = f'\t[{self.name}]>'
+        self.cli_color = f"\033[38;5;{random.randint(1, 254)}m"
 
         self.max_conn = max_conn
-        self.timeout = 20
+        self.timeout = 100
         self.lock = threading.Lock()
 
         #Cache
@@ -40,99 +41,58 @@ class KVServer:
         self.init_log(log_level, log_file, directory)
         self.init_storage()
 
-        # print(f'{self.cli}---- KVSSERVER {id} ACTIVE -----')
-        self.log.info(f'{self.cli}---- KVSSERVER {id} ACTIVE -----')
+        self.kvprint(f'---- KVSSERVER {id} ACTIVE -----')
 
-
-        self.ecs = ECS_handler(ecs_addr, self.cli, self.data)
-
-
-
-        # time.sleep(3)
-        # print(f'{self.cli} Sending ')
-        # self.ecs.handle_RESPONSE(f'Hi from KVSSERVER{id}')
-        # time.sleep(3)
-        # print(f'{self.cli} Sending msg')
-        # self.ecs.handle_RESPONSE(f'Second msg')
-        # time.sleep(12)
-
-
+        self.ecs = ECS_handler(ecs_addr, self.data, [self.cli, self.cli_color, self.log])
         self.listen_to_connections()
 
-        self.log.info(f'{self.cli}---- KVSSERVER {id} SLEEP -----')
-        print(f'{self.cli}---- KVSSERVER {id} SLEEP -----')
+        self.kvprint(f'---- KVSSERVER {id} SLEEP -----')
 
 
     def listen_to_connections(self):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
-            server.settimeout(10)
-            server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            server.bind((self.host, self.port))
-            server.listen()
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server.settimeout(10)
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server.bind((self.host, self.port))
+        server.listen()
 
-            self.log.debug(f'{self.cli}Listening on {self.host}:{self.port}')
-            print(f'{self.cli}Listening on {self.host}:{self.port}')
+        self.kvprint(f'Listening on {self.host}:{self.port}')
+        start_time = time.time()
 
-            start_time = time.time()
+        while True:
+            time.sleep(2)
+            self.kvprint(f'->Listening...')
+            readable, _, _ = select.select([server] + [self.ecs.sock], [], [], 5)
+            self.kvprint(f'ECS:{len({self.ecs.sock})}|Readable:{len(readable)}')
 
-            while True:
-                time.sleep(2)
-                print(f'{self.cli}->Listening...')
-                readable, writable, errors = select.select([server] + [self.ecs.sock], [], [], 10)
-                print(f'{self.cli}ECS:{len({self.ecs.sock})}|Readable:{len(readable)}|Writable:{len(writable)}|Errors:{len(errors)}')
+            for sock in readable:
+                if sock is server:
+                    conn, addr = sock.accept()
+                    self.kvprint(f'Connection accepted: {addr}', log='i')
 
-                for sock in readable:
-                    if sock is server:
-                        conn, addr = sock.accept()
-                        print(f'{self.cli}Connection accepted: {addr}')
-                        self.log.info(f'{self.cli}Connection accepted:, {addr}')
+                    client_thread = threading.Thread(target=self.init_client_handler, args=(conn, addr))
+                    client_thread.start()
+                    start_time = time.time()
 
-                        client_thread = threading.Thread(target=self.init_client_handler, args=(conn, addr))
-                        client_thread.start()
-
-                        print(f'{self.cli}Timeout restarted')
-                        start_time = time.time()
-
-                    elif sock == self.ecs.sock:
-                        print(f'{self.cli}Message from ECS..')
-                        self.ecs.handle_RECV(start_time)
-
-                    else:
-                        try:
-                            if sock.getpeername() is not None:
-                                print(f'{self.cli}Socket checked conn. Socket not used. CHECK THIS END')
-                                print(f'{self.cli}Timeout restarted')
-                                start_time = time.time()
-                            else:
-                                raise socket.error('No connection. Delete socket')
-
-                        except socket.error as e:
-                            print(f"Exception:{e}. Deleting socket")
-                            sock.close()
-
-                        except:
-                            print("Socket is not connected to a remote endpoint. Deleting socket")
-                            sock.close()
-                        print('Check this error. Socket out of list')
-
-
-                if not self.check_active_clients() and (time.time() - start_time) >= self.timeout:
-                    self.log.debug(f'{self.cli} Closing kvserver')
-                    break
+                elif sock == self.ecs.sock:
+                    self.kvprint(f' Message from ECS..', log='i')
+                    self.ecs.handle_RECV()
                 else:
-                    # self.log.debug(f'{self.cli} Still active. Reset while.')
-                    continue
+                    self.kvprint(f'OUTSIDE SOCKET NOT FOLLOW.CHECK. Socket out of list')
+
+            if not self.check_active_clients() and (time.time() - start_time) >= self.timeout:
+                self.kvprint(f' Closing kvserver')
+                break
 
 
     def init_client_handler(self, conn, addr):
-        print('Init client handler')
         client_id = None #TODO rethink client organization
         for key, value in self.clients_conn.items():
             if value is None:
-                client_id = key
+                client_id = key #Todo store client by addr -> id
                 break
         if client_id is None:
-            self.log.debug(f'{self.cli} ERROR client id selections')
+            self.kvprint(f' ERROR client id selections')
 
         Client_handler(client_fd=conn,
                         client_id=client_id,
@@ -140,12 +100,11 @@ class KVServer:
                         cache_type=self.c_strg,
                         cache_cap=self.c_size,
                         lock=self.lock,
-                        logger=self.log,
-                       storage_dir=self.storage_dir)
+                       storage_dir=self.storage_dir,
+                       printer_config=[self.cli, self.cli_color, self.log])
 
 
     def check_active_clients(self):
-        # print('Clients: ', self.clients_conn)
         count = sum(value is not None for value in self.clients_conn.values())
         active_ids = list()
         for key, value in self.clients_conn.items():
@@ -153,13 +112,33 @@ class KVServer:
                 continue
             else:
                 active_ids.append(value.client_id)
-        self.log.debug(f'{self.cli} Active clients: {count}, Ids: {active_ids}')
+        self.kvprint(f' Active clients: {count}, Ids: {active_ids}')
         return count
-
 
     def init_storage(self):
         self.storage_dir = os.path.join(self.directory, f'kserver{self.id}_storage')
         shelve.open(filename=self.storage_dir)
+
+    def kvprint(self, *args, c=None, log='d'):
+        COLORS = {
+            'r': '\033[91m',
+            'g': '\033[92m',
+            'y': '\033[93m',
+            'b': '\033[94m',
+            'reset': '\033[0m'
+        }
+        c = self.cli_color if c is None else COLORS[c]
+
+        message = ' '.join(str(arg) for arg in args)
+        message = c + self.cli + message + COLORS['reset']
+        print(message)
+
+        if log == 'd':
+            self.log.debug(f'{self.cli}{message}')
+        if log == 'i':
+            self.log.info(f'{self.cli}{message}')
+
+
 
 
     def init_log(self, log_level, log_file, directory):
@@ -181,8 +160,6 @@ class KVServer:
                                 level=logging.DEBUG,
                                 format='%(asctime)s - %(levelname)s - %(message)s')
         self.log = logging.getLogger(__name__)
-
-
 
 
 # ------------------------------------------------------------------------------------------
@@ -220,3 +197,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+# python kvserver.py -i 0 -p 4001 -b 127.0.0.1:8000
+# python kvserver.py -i 1 -p 4002 -b 127.0.0.1:8000

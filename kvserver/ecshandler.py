@@ -3,128 +3,121 @@ import time
 import json
 
 class ECS_handler:
-    def __init__(self, addr, cli, kv_data):
-        self.addr, self.port = addr.split(':')
-        self.addr = self.addr.replace(" ", "")
-        self.port = int(self.port)
+    def __init__(self, addr, kv_data, printer_config):
+        self.ecs_addr, self.ecs_port = addr.split(':')
+
+        self.ecs_addr = self.ecs_addr.replace(" ", "")
+        self.ecs_port = int(self.ecs_port)
+
+        self.cli = f'[ECS handler]>'
+        self.print_cnfig = printer_config
 
         self.kv_data = kv_data
 
-        self.cli = f'{cli}[ECS handler]>'
-
         self.connect_to_ECS()
-        self.sending_msg()
-        self.close()
+
 
     def connect_to_ECS(self):
-        print(f'{self.cli}Connecting to bootstrap [{self.addr, self.port}]')
+        self.kvprint(f'Connecting to bootstrap [{self.ecs_addr, self.ecs_port}]')
         RETRY_INTERVAL = 3
         while True:
             try:
                 self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                self.sock.connect((self.addr, self.port))
-                print(f'{self.cli}Connected to ECS')
+                self.sock.connect((self.ecs_addr, self.ecs_port))
+                self.addr, self.port = self.sock.getsockname()
+                self.kvprint(f'Connected to ECS. My addr: {self.addr}:{self.port }')
                 break
             except socket.error as e:
-                print(f'{self.cli}Connection error:{e}. Retrying in {RETRY_INTERVAL} seconds...')
-                time.sleep(RETRY_INTERVAL)
-
-    def sending_msg(self):
-        for i in range(3):
-            message = f"Message {i + 1}"
-            self.sock.send(message.encode())
-            print(f"Sent message: {message}")
-            time.sleep(5)
-
-    def close(self):
-        message = f"LAST MSG"
-        self.sock.send(message.encode())
-        print(f"Sent message: {message}")
-        print(f"CLOSING KVSERVER")
-
-        # Close the client socket
-        self.sock.close()
-
-
-    def connect_to_ECS2(self):
-        print(f'{self.cli}Connecting to bootstrap [{self.addr, self.port}]')
-        RETRY_INTERVAL = 3
-        while True:
-            try:
-                self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                self.sock.connect((self.addr, self.port))
-                print(f'{self.cli}Connected to ECS')
-                break
-            except socket.error as e:
-                print(f'{self.cli}Connection error:{e}. Retrying in {RETRY_INTERVAL} seconds...')
+                self.kvprint(f'Connection error:{e}. Retrying in {RETRY_INTERVAL} seconds...')
                 time.sleep(RETRY_INTERVAL)
 
 
-    def handle_RECV2(self, start_time):
-        print(f'{self.cli}Handling the recv of ECS')
+
+    def handle_RECV(self):
+        self.kvprint(f'Handling the recv of ECS')
         try:
-            data = self.sock.recv(128 * 1024)
-            # print(f'{self.cli}Received data before decode: {repr(data)}')
-
-            data = data.decode()
-            if data is not None and data != 'null' and data !='':
+            data = self.sock.recv(128 * 1024).decode()
+            # if data is not None and data != 'null' and data !="":
+            if data:
+                # self.kvprint(f'Data received:', repr(data))
                 self.handle_REQUEST(data)
-                print(f'{self.cli}Timeout restarted')
-                start_time = time.time()
             else:
-                print(f'{self.cli}No data. Continue')
-                # raise Exception('Error while handling the request. No data. Closing socket')
+                self.kvprint(f'No data. --> Closing socket')
+                self.sock.close()
 
-        except ConnectionResetError:
-            print(f'{self.cli}EXCEPTION: Connection reset by peer.')
-        except Exception as e:  # work on python 2.x
-            print(f'{self.cli}Failed process received data: {e}')
+        except Exception as e:
+            self.kvprint(f'Exception: {e} --> Closing socket')
+            self.sock.close()
+
+
 
     def handle_REQUEST(self, data):
-        data = data.replace('\\r\\n', '\r\n')
-        # print(f'{self.cli}Received data after replace and decoded: {repr(data)}')
-        messages = data.split('\r\n')
-
+        messages = data.replace('\\r\\n', '\r\n').split('\r\n')
         for msg in messages:
             if msg is None or msg == " " or not msg:
                 break
             else:
-                print(f'{self.cli}Received message: {repr(msg)}')
+                self.kvprint(f'Received message: {repr(msg)}')
                 try:
                     recv_data = json.loads(msg)
                     method = recv_data.get('request')
+                    # self.kvprint(f'Method: {method}. Sending answer')
                     if method == 'kvserver_data':
-                        print(f'{self.cli}Method: {method}. Sending answer')
                         self.handle_json_RESPONSE(method)
                     else:
-                        print(f'{self.cli}error unknown command!')
+                        self.kvprint(f'error unknown command!')
 
                 except json.decoder.JSONDecodeError as e:
-                    print(f'{self.cli}Error parsing JSON: {str(e)}')
+                    self.kvprint(f'Error parsing JSON: {str(e)}.')
+                    # self.handle_RESPONSE(f'{self.cli}Message received: {msg}')
 
-                # data = recv_data.get('data')
-                # formatted_json = json.dumps(recv_data, indent=4)
-
+    def handle_RESPONSE(self, response):
+        print('sending answer')
+        self.sock.sendall(bytes(f'{response}\r\n', encoding='utf-8'))
 
     def handle_json_RESPONSE(self, method):
-
         try:
             json_data = json.dumps(self.messages_templates(method))
-            self.sock.sendall(bytes(json_data, encoding='utf-8'))
-            print(f'{self.cli}Response sent')
-            # print(f'{self.cli}Response of {method} sent')
-        except:
-            raise Exception('Error while sending the data.')
+            self.sock.sendall(bytes(f'{json_data}\r\n', encoding='utf-8'))
+            # self.kvprint(f'Response sent:{json_data}')
+        except Exception as e:
+            self.kvprint(f'Error while sending the data: {e}')
 
 
-    def messages_templates(self, method):
-        if method == 'kvserver_data':
-            self.data = {
+    def messages_templates(self, request):
+        if request == 'kvserver_data':
+            return {
                 'request': 'kvserver_data',
                 'data': {
                     'id': self.kv_data['id'],
                     'name': self.kv_data['name'],
-                    'host': self.kv_data['host'],
-                    'port': self.kv_data['port'],
+                    'host': self.addr,
+                    'port': self.port,
                 }
             }
+        else:
+            self.kvprint(f'Message templates. Request not found:{request}')
+
+    def kvprint(self, *args, c=None, log='d'):
+        COLORS = {
+            'r': '\033[91m',
+            'g': '\033[92m',
+            'y': '\033[93m',
+            'b': '\033[94m',
+            'reset': '\033[0m'
+        }
+        c = self.print_cnfig[1] if c is None else COLORS[c]
+
+        message = ' '.join(str(arg) for arg in args)
+        message = c + self.print_cnfig[0] + self.cli + message + COLORS['reset']
+        print(message)
+
+        if log == 'd':
+            self.print_cnfig[2].debug(f'{self.print_cnfig[0]}{self.cli}{message}')
+        if log == 'i':
+            self.print_cnfig[2].info(f'{self.print_cnfig[0]}|{self.cli}{message}')
+
+
+
+
+
