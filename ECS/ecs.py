@@ -27,13 +27,9 @@ class ECS:
         self.kv_data = {}
 
         self.server_bootstrap()
-        self.hashing_class = ConsistentHashing(self.kv_data, num_kvservers)
+        self.hashing_class = ConsistentHashing(self.kv_data)
 
 
-        # print('\n')
-        # formatted_dict = json.dumps(self.kvdata_part, indent=4)
-        # print(formatted_dict)
-        # print('\n')
 
         thread = threading.Thread(target=self.listen_to_kvservers())
         thread.start()
@@ -46,6 +42,7 @@ class ECS:
         #     self.handle_RESPONSE(f' BYE KvSERVER', sock)
 
         self.ecsprint(f'Closing ECS')
+        exit(0)
 
 
     def listen_to_kvservers(self):
@@ -160,7 +157,8 @@ class ECS:
                 'data': {
                     'id': kvserver['id'],
                     'name': kvserver['name'],
-                    'hash_key': kvserver['hash_key']
+                    'hash_key': kvserver['hash_key'],
+                    'previous_hash': kvserver['previous_hash']
                 }
             }
 
@@ -243,7 +241,7 @@ def main():
     parser.add_argument('-a', '--address', default='127.0.0.1', help='Server address')
     parser.add_argument('-p', '--port', default='7000', type=int, help='Server port')
     parser.add_argument('-d', '--directory', default='.', type=str, help='Storage directory')
-    parser.add_argument('-n', '--num-kvservers', default=1, type=int, help='Number of kvservers')
+    parser.add_argument('-n', '--num-kvservers', default=4, type=int, help='Number of kvservers')
     # parser.add_argument('-h', '--help', required=True, help='Help')
 
     args = parser.parse_args()
@@ -256,3 +254,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+

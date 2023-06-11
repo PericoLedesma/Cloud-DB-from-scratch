@@ -30,6 +30,7 @@ class KVServer:
         self.max_conn = max_conn
         self.timeout = 10
         self.lock = threading.Lock()
+        self.write_lock = True
 
         #Cache
         self.c_strg = cache_strategy
@@ -49,6 +50,7 @@ class KVServer:
         self.listen_to_connections()
 
         self.kvprint(f'---- KVSSERVER {id} SLEEP -----')
+        exit(0)
 
 
     def listen_to_connections(self):

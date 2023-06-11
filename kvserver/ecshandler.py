@@ -72,7 +72,10 @@ class ECS_handler:
                     if method == 'kvserver_data':
                         self.handle_json_RESPONSE(method)
                     elif method == 'kvserver_hash_key':
-                        self.kv_data['has_key'] = parsedata.get('data', {}).get('hash_key')
+                        data = parsedata.get('data', {})
+                        self.kv_data['hash_key'] = data.get('hash_key')
+                        self.kv_data['previous_hash'] = data.get('previous_hash')
+                        self.kvprint(f'Hash interval received: {self.kv_data["previous_hash"]}|{self.kv_data["hash_key"]}')
                     else:
                         self.kvprint(f'error unknown command!')
 

@@ -1,0 +1,22 @@
+2023-06-11 21:02:37,211 - DEBUG - 	[kvserver6]>[38;5;178m	[kvserver6]>---- KVSSERVER 6 ACTIVE -----Hosting in 127.0.0.1:3006[0m
+2023-06-11 21:02:37,211 - DEBUG - 	[kvserver6]>[ECS handler]>[38;5;178m	[kvserver6]>[ECS handler]>Connecting to bootstrap 127.0.0.1:7000[0m
+2023-06-11 21:02:37,211 - DEBUG - 	[kvserver6]>[ECS handler]>[38;5;178m	[kvserver6]>[ECS handler]>Connected to ECS. Connectiona addr: 127.0.0.1:55948[0m
+2023-06-11 21:02:37,212 - DEBUG - 	[kvserver6]>[38;5;178m	[kvserver6]>Listening on 127.0.0.1:3006[0m
+2023-06-11 21:02:39,217 - DEBUG - 	[kvserver6]>[38;5;178m	[kvserver6]>->Listening...[0m
+2023-06-11 21:02:39,217 - DEBUG - 	[kvserver6]>[38;5;178m	[kvserver6]>ECS:1|Readable:1[0m
+2023-06-11 21:02:39,217 - INFO - 	[kvserver6]>[38;5;178m	[kvserver6]> Message from ECS..[0m
+2023-06-11 21:02:39,217 - DEBUG - 	[kvserver6]>[ECS handler]>[38;5;178m	[kvserver6]>[ECS handler]>Handling the recv of ECS[0m
+2023-06-11 21:02:39,217 - DEBUG - 	[kvserver6]>[ECS handler]>[38;5;178m	[kvserver6]>[ECS handler]>Received message: '{"request": "kvserver_data"}'[0m
+2023-06-11 21:02:39,218 - DEBUG - 	[kvserver6]>[38;5;178m	[kvserver6]> Active clients: 0, Ids: [][0m
+2023-06-11 21:02:41,219 - DEBUG - 	[kvserver6]>[38;5;178m	[kvserver6]>->Listening...[0m
+2023-06-11 21:02:41,220 - DEBUG - 	[kvserver6]>[38;5;178m	[kvserver6]>ECS:1|Readable:1[0m
+2023-06-11 21:02:41,220 - INFO - 	[kvserver6]>[38;5;178m	[kvserver6]> Message from ECS..[0m
+2023-06-11 21:02:41,220 - DEBUG - 	[kvserver6]>[ECS handler]>[38;5;178m	[kvserver6]>[ECS handler]>Handling the recv of ECS[0m
+2023-06-11 21:02:41,221 - DEBUG - 	[kvserver6]>[ECS handler]>[38;5;178m	[kvserver6]>[ECS handler]>Received message: '{"request": "kvserver_hash_key", "data": {"id": 6, "name": "kvserver6", "hash_key": 178, "previous_hash": 150}}'[0m
+2023-06-11 21:02:41,221 - DEBUG - 	[kvserver6]>[ECS handler]>[38;5;178m	[kvserver6]>[ECS handler]>Hash interval: 150|178[0m
+2023-06-11 21:02:41,221 - DEBUG - 	[kvserver6]>[38;5;178m	[kvserver6]> Active clients: 0, Ids: [][0m
+2023-06-11 21:02:43,225 - DEBUG - 	[kvserver6]>[38;5;178m	[kvserver6]>->Listening...[0m
+2023-06-11 21:02:48,229 - DEBUG - 	[kvserver6]>[38;5;178m	[kvserver6]>ECS:1|Readable:0[0m
+2023-06-11 21:02:48,229 - DEBUG - 	[kvserver6]>[38;5;178m	[kvserver6]> Active clients: 0, Ids: [][0m
+2023-06-11 21:02:48,230 - DEBUG - 	[kvserver6]>[38;5;178m	[kvserver6]> Closing kvserver[0m
+2023-06-11 21:02:48,230 - DEBUG - 	[kvserver6]>[38;5;178m	[kvserver6]>---- KVSSERVER 6 SLEEP -----[0m
