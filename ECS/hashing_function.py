@@ -1,72 +1,53 @@
 import hashlib
-#
-# class ConsistentHashing:
-#     def __init__(self, num_virtual_nodes):
-#         self.num_virtual_nodes = num_virtual_nodes
-#         self.hash_ring = []
-#         self.virtual_nodes = {}
-#
-#         my_dict = {('id', 'kserver1'): {'vnodes':[list]}}
-#
-#         for num in range(0, num + 1):
-#             key = ('id', f'kvserver{num}')
-#             map_to_ring()
-#             value = ('nodes',)))
-#
-#
-#             self.server_names.append(f"")
-#
-#     def add_node(self, node_id):
-#         for i in range(self.num_virtual_nodes):
-#             virtual_node_id = f"{node_id}-vn{i}"
-#             hash_value = self._hash(virtual_node_id)
-#             self.hash_ring.append(hash_value)
-#             self.virtual_nodes[hash_value] = node_id
-#
-#         self.hash_ring.sort()
-#
-#     def _hash(self, key):
-#         return int(hashlib.md5(key.encode()).hexdigest(), 16)
-#
-#     def get_node(self, key):
-#         if not self.hash_ring:
-#             return None
-#
-#         hash_value = self._hash(key)
-#         for node_hash in self.hash_ring:
-#             if node_hash >= hash_value:
-#                 return self.virtual_nodes[node_hash]
-#
-#         return self.virtual_nodes[self.hash_ring[0]]
-#
-#
-#
-#     def md5_hash_string(self, string):
-#         # Create a hash object using the MD5 algorithm
-#         hash_object = hashlib.md5()
-#
-#         # Convert the string to bytes and update the hash object
-#         hash_object.update(string.encode('utf-8'))
-#
-#         # Get the hexadecimal representation of the hash digest
-#         hash_value = hash_object.hexdigest()
-#
-#         return hash_value
-#
-#
-#     def map_to_ring(self, server_id, total_servers):
-#         # Hash the server identifier using a hash function (e.g., MD5)
-#         hash_value = hashlib.md5(server_id.encode()).hexdigest()
-#
-#         # Convert the hash value to an integer
-#         hash_int = int(hash_value, 16)
-#
-#         # Calculate the position on the ring based on the total number of servers
-#         ring_position = (hash_int * 360) // total_servers
-#
-#         return ring_position
-#
-#
+
+class ConsistentHashing:
+    def __init__(self, kvdata_part, n):
+        self.num_virtual_nodes = n
+        self.hash_ring = []
+        self.virtual_nodes = {}# Dictionary to store partition assignments
+        # print('Getting keys of kvservers..')
+
+        # Assign each address to a partition in the hashing ring
+        for server in kvdata_part.values():
+            key = f"{server['host']}:{server['port']}"
+
+            hash_key, identifier = self.hash(key)
+
+            server['hash_int'] = identifier
+            server['hash_key'] = hash_key
+
+
+            self.hash_ring.append(hash_key)
+            self.virtual_nodes[hash_key] = (server['host'], server['port'])
+
+        self.hash_ring.sort()
+
+        # print(f'Hash_key by order[{self.hash_ring}]')
+
+
+    def find_server_for_key(self,kvdata_part, key):
+        identifier, hash_key = self.hash(key)
+        partition = kvdata_part[0]['hash_key']
+
+        for server in kvdata_part.values():
+            if server['hash_key'] <= hash_key:
+                partition = server['id']
+        return partition
+
+
+    def hash(self, key):
+        # Compute MD5 hash
+        md5_hash = hashlib.md5(key.encode()).hexdigest()
+
+        # Convert selected portion to integer
+        identifier = int(md5_hash, 16)
+
+        # print(f'Key [{key}] |Hash {md5_hash}|Identifier: {identifier}')
+
+        return md5_hash, identifier
+
+
+
 
 
 

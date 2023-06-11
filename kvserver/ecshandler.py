@@ -13,23 +13,30 @@ class ECS_handler:
         self.print_cnfig = printer_config
 
         self.kv_data = kv_data
+        self.timeout = 10
 
         self.connect_to_ECS()
 
 
     def connect_to_ECS(self):
-        self.kvprint(f'Connecting to bootstrap [{self.ecs_addr, self.ecs_port}]')
+        self.kvprint(f'Connecting to bootstrap {self.ecs_addr}:{self.ecs_port}')
         RETRY_INTERVAL = 3
+        start_time = time.time()
+
         while True:
             try:
                 self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.sock.connect((self.ecs_addr, self.ecs_port))
                 self.addr, self.port = self.sock.getsockname()
-                self.kvprint(f'Connected to ECS. My addr: {self.addr}:{self.port }')
+                self.kvprint(f'Connected to ECS. Connectiona addr: {self.addr}:{self.port }')
                 break
             except socket.error as e:
                 self.kvprint(f'Connection error:{e}. Retrying in {RETRY_INTERVAL} seconds...')
                 time.sleep(RETRY_INTERVAL)
+
+            if (time.time() - start_time) >= self.timeout:
+                self.kvprint(f' Closing kvserver')
+                break
 
 
 
@@ -59,11 +66,13 @@ class ECS_handler:
             else:
                 self.kvprint(f'Received message: {repr(msg)}')
                 try:
-                    recv_data = json.loads(msg)
-                    method = recv_data.get('request')
+                    parsedata = json.loads(msg)
+                    method = parsedata.get('request')
                     # self.kvprint(f'Method: {method}. Sending answer')
                     if method == 'kvserver_data':
                         self.handle_json_RESPONSE(method)
+                    elif method == 'kvserver_hash_key':
+                        self.kv_data['has_key'] = parsedata.get('data', {}).get('hash_key')
                     else:
                         self.kvprint(f'error unknown command!')
 
@@ -91,8 +100,8 @@ class ECS_handler:
                 'data': {
                     'id': self.kv_data['id'],
                     'name': self.kv_data['name'],
-                    'host': self.addr,
-                    'port': self.port,
+                    'host': self.kv_data['host'],
+                    'port': self.kv_data['port'],
                 }
             }
         else:

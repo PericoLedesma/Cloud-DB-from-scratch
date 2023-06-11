@@ -1,4 +1,4 @@
-# from hashing_function import *
+from hashing_function import *
 import subprocess
 import os
 import time
@@ -8,33 +8,42 @@ import select
 import hashlib
 import threading
 import json
+import os
+os.system('cls' if os.name == 'nt' else 'clear')
 
 class ECS:
     def __init__(self, host, port, directory, num_kvservers):
-        print(f' ==> ECS server on port[{host}:{port}]')
+        print(f' ==> ECS server on port {host}:{port} ')
 
         self.cli = f'[ECS]>'
         self.host = host
         self.port = port
-        self.timeout = 100
+        self.timeout = 10
 
         self.num_kvservers = num_kvservers
         self.kvs_inputs = []
         self.kvs_outputs = []
-        self.kvs_data = {}
+
+        self.kv_data = {}
 
         self.server_bootstrap()
+        self.hashing_class = ConsistentHashing(self.kv_data, num_kvservers)
+
+
+        # print('\n')
+        # formatted_dict = json.dumps(self.kvdata_part, indent=4)
+        # print(formatted_dict)
+        # print('\n')
+
         thread = threading.Thread(target=self.listen_to_kvservers())
         thread.start()
 
-        # self.listen_to_kvservers()
-
         print('-----lines continuees---')
 
-        # time.sleep(5)
-        self.ecsprint(f'Sending msg')
-        for sock in self.kvs_inputs:
-            self.handle_RESPONSE(f' BYE KvSERVER', sock)
+        # # time.sleep(5)
+        # self.ecsprint(f'Sending msg')
+        # for sock in self.kvs_inputs:
+        #     self.handle_RESPONSE(f' BYE KvSERVER', sock)
 
         self.ecsprint(f'Closing ECS')
 
@@ -58,16 +67,17 @@ class ECS:
 
             for sock in readable:
                 if sock is server_socket:
-                    kv_sock, client_addr = server_socket.accept()
-                    self.ecsprint(f'New kvserver connected: {client_addr}')
+                    kv_sock, kv_addr = server_socket.accept()
+                    self.ecsprint(f'New kvserver connected: {kv_addr}')
 
                     # Storing data
-                    self.kv_sockets[kv_sock] = {'addr': client_addr, 'sock': kv_sock, 'last_activity': time.time()}
+                    self.kv_sockets[kv_sock] = {'addr': kv_addr, 'sock': kv_sock, 'last_activity': time.time()}
                     inputs.append(kv_sock)
 
                     # Asking for data
                     self.handle_json_RESPONSE(kv_sock, 'kvserver_data')
                     start_time = time.time()
+
                 else:
                     try:
                         data = sock.recv(128 * 1024).decode()
@@ -108,47 +118,65 @@ class ECS:
                     request = parsedata.get('request')
                     # self.ecsprint(f'Request: {repr(request)}')
                     if request == 'kvserver_data':
-                        self.kvs_data[sock] = {
-                            'id': parsedata.get('data', {}).get('id'),
-                            'name': parsedata.get('data', {}).get('name'),
-                            'host': parsedata.get('data', {}).get('host'),
-                            'port': parsedata.get('data', {}).get('port')
-                        }
-                        # self.ecsprint(f'Check of data stored', self.kvs_data)
+                        id = parsedata.get('data', {}).get('id')
+                        host = parsedata.get('data', {}).get('host')
+                        port = parsedata.get('data', {}).get('port')
+
+                        if self.kv_data[id]['port'] != port or \
+                                self.kv_data[id]['host'] != host:
+                            self.ecsprint(f'Error with data received. Data dont match', c='r')
+                        else:
+                            self.handle_json_RESPONSE(sock, 'kvserver_hash_key', self.kv_data[id])
+
                     else:
                         self.ecsprint(f'error unknown command!')
 
                 except Exception as e:
-                    self.ecsprint(f'Error handling request\parsing JSON: {str(e)}')
+                    self.ecsprint(f'Error handling request\parsing JSON: {str(e)}', c='r')
                     self.handle_RESPONSE(f'{self.cli}Message received: {msg}', sock)
 
 
     def handle_RESPONSE(self, response, sock):
         sock.sendall(bytes(f'{response}\r\n', encoding='utf-8'))
 
-    def handle_json_RESPONSE(self, sock, method):
+
+    def handle_json_RESPONSE(self, sock, request, kvserver=None):
         try:
-            json_data = json.dumps(self.messages_templates(method))
+            json_data = json.dumps(self.messages_templates(request, kvserver))
             sock.sendall(bytes(f'{json_data}\r\n', encoding='utf-8'))
             # self.ecsprint(f'Resquest sent: [{method}]')
         except Exception as e:
             self.ecsprint(f'Error while sending the data: {e}', c='r')
 
-    def messages_templates(self, request):
+
+    def messages_templates(self, request, kvserver):
         if request == 'kvserver_data':
             return {
                 'request': 'kvserver_data'
             }
+        elif request == 'kvserver_hash_key':
+            return {
+                'request': 'kvserver_hash_key',
+                'data': {
+                    'id': kvserver['id'],
+                    'name': kvserver['name'],
+                    'hash_key': kvserver['hash_key']
+                }
+            }
+
         else:
             self.ecsprint(f'{self.cli}Message templates. Request not found:{request}')
 
 
+
     def kv_id(self, sock):
         try:
-            if self.kvs_data[sock]:
-                return self.kvs_data[sock]['name']
+            for server in self.kv_data.values():
+                if server['sock'] == sock:
+                    return server['name']
         except:
             return sock.getpeername()
+
 
     def ecsprint(self, *args, c=None):
         COLORS = {
@@ -171,34 +199,51 @@ class ECS:
 
     def server_bootstrap(self):
         self.ecsprint(f'Server bootstrap...')
+
         # Paths
         current_dir = os.path.abspath(os.path.dirname(__file__))
         parent_dir = os.path.abspath(os.path.join(current_dir, os.pardir))
         script_path = os.path.join(parent_dir, 'kvserver', 'kvserver.py')
 
         port = 3000 #todo
+        addr = '127.0.0.1'
+
         bootstrap = f'{self.host}:{self.port}'
 
+        self.ecsprint(f'Starting kvservers... Bootstrap addr:{bootstrap}')
         for n in range(self.num_kvservers):
-            self.ecsprint(f'Starting kvserver {n}')
-            command = ['python', script_path, f'-i {n}', f'-p {port + n}', f'-b {bootstrap}']
 
-            result = subprocess.Popen(command)
+            try:
+                command = ['python',
+                           script_path,
+                           f'-i {n}',
+                           f'-b {bootstrap}',
+                           f'-a {addr}',
+                           f'-p {(port + n)}'
+                           ]
+                result = subprocess.Popen(command)
+                self.kv_data[n] = {'id': n,
+                                       'name': f'kvserver{n}',
+                                       'port': (port + n),
+                                       'host': addr}
 
-            if result.returncode == 0:
-                self.ecsprint(f'The script ran successfully.')
+            except Exception as e:
+                self.ecsprint(f'Error starting server {n}: {str(e)}')
+
+            # if result.returncode == 0:
+            #     self.ecsprint(f'The script ran successfully.')
             # else:
             #     self.ecsprint(f'The script encountered an error.')
-        self.ecsprint(f'Server bootstrap DONE')
+        self.ecsprint(f'Server bootstrap done. Number of server started: {len(self.kv_data)}/{self.num_kvservers}')
 
 
 
 def main():
     parser = argparse.ArgumentParser(description='ECS Server')
     parser.add_argument('-a', '--address', default='127.0.0.1', help='Server address')
-    parser.add_argument('-p', '--port', default='9000', type=int, help='Server port')
+    parser.add_argument('-p', '--port', default='7000', type=int, help='Server port')
     parser.add_argument('-d', '--directory', default='.', type=str, help='Storage directory')
-    parser.add_argument('-n', '--num-kvservers', default=2, type=int, help='Number of kvservers')
+    parser.add_argument('-n', '--num-kvservers', default=1, type=int, help='Number of kvservers')
     # parser.add_argument('-h', '--help', required=True, help='Help')
 
     args = parser.parse_args()
