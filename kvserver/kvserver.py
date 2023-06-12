@@ -28,7 +28,7 @@ class KVServer:
         self.cli_color = f"\033[38;5;{random.randint(1, 254)}m"
 
         self.max_conn = max_conn
-        self.timeout = 10
+        self.timeout = 5
         self.lock = threading.Lock()
         self.write_lock = True
 
@@ -64,7 +64,7 @@ class KVServer:
         start_time = time.time()
 
         while True:
-            time.sleep(2)
+            # time.sleep(2)
             self.kvprint(f'->Listening...')
             readable, _, _ = select.select([server] + [self.ecs.sock], [], [], 5)
             self.kvprint(f'ECS:{len({self.ecs.sock})}|Readable:{len(readable)}')
@@ -80,7 +80,7 @@ class KVServer:
 
                 elif sock == self.ecs.sock:
                     self.kvprint(f' Message from ECS..', log='i')
-                    self.ecs.handle_RECV()
+                    self.ecs.handle_CONN()
                 else:
                     self.kvprint(f'OUTSIDE SOCKET NOT FOLLOW.CHECK. Socket out of list')
 
@@ -171,7 +171,7 @@ class KVServer:
 def main():
     parser = argparse.ArgumentParser(description='Load balancer kvserver')
     parser.add_argument('-i', '--id', default=9, type=int, help='Server id')
-    parser.add_argument('-b', '--ecs-addr', default='127.0.0.1:8001', help='ECS Server address')
+    parser.add_argument('-b', '--ecs-addr', default='127.0.0.1:7000', help='ECS Server address')
     parser.add_argument('-a', '--address', default='127.0.0.1', help='Server address')
     parser.add_argument('-p', '--port', default='5000', type=int, help='Server port')
     parser.add_argument('-s', '--cache-strategy', default='LFU', type=str, help='Cache strategy: fifo, lru, lfu')

@@ -13,9 +13,11 @@ class ECS_handler:
         self.print_cnfig = printer_config
 
         self.kv_data = kv_data
-        self.timeout = 10
+        self.ring_metadata = {}
+        self.timeout = 100
 
         self.connect_to_ECS()
+        # self.kvprint(f' Closing ECS handler...', c='r')
 
 
     def connect_to_ECS(self):
@@ -28,38 +30,39 @@ class ECS_handler:
                 self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.sock.connect((self.ecs_addr, self.ecs_port))
                 self.addr, self.port = self.sock.getsockname()
-                self.kvprint(f'Connected to ECS. Connectiona addr: {self.addr}:{self.port }')
+                self.kvprint(f'Connected to ECS. Connection addr: {self.addr}:{self.port }')
                 break
             except socket.error as e:
                 self.kvprint(f'Connection error:{e}. Retrying in {RETRY_INTERVAL} seconds...')
                 time.sleep(RETRY_INTERVAL)
 
             if (time.time() - start_time) >= self.timeout:
-                self.kvprint(f' Closing kvserver')
+                self.kvprint(f'Stop retrying to connect to ECS', c='r')
                 break
 
 
 
-    def handle_RECV(self):
+    def handle_CONN(self):
         self.kvprint(f'Handling the recv of ECS')
         try:
             data = self.sock.recv(128 * 1024).decode()
             # if data is not None and data != 'null' and data !="":
             if data:
                 # self.kvprint(f'Data received:', repr(data))
-                self.handle_REQUEST(data)
+                self.handle_RECV(data)
             else:
-                self.kvprint(f'No data. --> Closing socket')
+                self.kvprint(f'No data. --> Closing socket', c='r')
                 self.sock.close()
 
         except Exception as e:
-            self.kvprint(f'Exception: {e} --> Closing socket')
+            self.kvprint(f'Exception: {e} --> Closing socket', c='r')
             self.sock.close()
 
 
 
-    def handle_REQUEST(self, data):
+    def handle_RECV(self, data):
         messages = data.replace('\\r\\n', '\r\n').split('\r\n')
+        time.sleep(3)
         for msg in messages:
             if msg is None or msg == " " or not msg:
                 break
@@ -67,36 +70,41 @@ class ECS_handler:
                 self.kvprint(f'Received message: {repr(msg)}')
                 try:
                     parsedata = json.loads(msg)
-                    method = parsedata.get('request')
-                    # self.kvprint(f'Method: {method}. Sending answer')
-                    if method == 'kvserver_data':
-                        self.handle_json_RESPONSE(method)
-                    elif method == 'kvserver_hash_key':
-                        data = parsedata.get('data', {})
-                        self.kv_data['hash_key'] = data.get('hash_key')
-                        self.kv_data['previous_hash'] = data.get('previous_hash')
-                        self.kvprint(f'Hash interval received: {self.kv_data["previous_hash"]}|{self.kv_data["hash_key"]}')
+                    request = parsedata.get('request')
+                    # self.kvprint(f'Method: {request}. Sending answer')
+                    if request == 'kvserver_data':
+                        self.handle_json_REPLY(request)
+                    elif request == 'ring_metadata':
+                        self.ring_metadata = parsedata.get('data', {})
+                        self.kvprint(f'Updated RING.')
+                        time.sleep(3)
+                        for key, value in self.ring_metadata.items():
+
+                            if value[0] == self.kv_data['host'] and value[1] == self.kv_data['port']:
+                                self.kv_data['hash_key'] = value[2]
+                                self.kv_data['previous_hash'] = value[3]
+                                self.kvprint(f'Updated own metadata with ring metadata.')
+                                break
                     else:
-                        self.kvprint(f'error unknown command!')
+                        self.kvprint(f'error unknown command!', c='r')
 
                 except json.decoder.JSONDecodeError as e:
-                    self.kvprint(f'Error parsing JSON: {str(e)}.')
-                    # self.handle_RESPONSE(f'{self.cli}Message received: {msg}')
+                    self.kvprint(f'Error handling received. Not a json?: {str(e)}.', c='r')
 
-    def handle_RESPONSE(self, response):
+    def handle_REPLY(self, response):
         print('sending answer')
         self.sock.sendall(bytes(f'{response}\r\n', encoding='utf-8'))
 
-    def handle_json_RESPONSE(self, method):
+    def handle_json_REPLY(self, method):
         try:
-            json_data = json.dumps(self.messages_templates(method))
+            json_data = json.dumps(self.REPLY_templates(method))
             self.sock.sendall(bytes(f'{json_data}\r\n', encoding='utf-8'))
             # self.kvprint(f'Response sent:{json_data}')
         except Exception as e:
-            self.kvprint(f'Error while sending the data: {e}')
+            self.kvprint(f'Error while sending the data: {e}', c='r')
 
 
-    def messages_templates(self, request):
+    def REPLY_templates(self, request):
         if request == 'kvserver_data':
             return {
                 'request': 'kvserver_data',
@@ -108,7 +116,7 @@ class ECS_handler:
                 }
             }
         else:
-            self.kvprint(f'Message templates. Request not found:{request}')
+            self.kvprint(f'Message templates. Request not found:{request}', c='r')
 
     def kvprint(self, *args, c=None, log='d'):
         COLORS = {

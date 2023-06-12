@@ -3,68 +3,49 @@ import json
 
 class ConsistentHashing:
     def __init__(self, kv_data):
-
-        self.num_virtual_nodes = len(kv_data)
-
         self.kv_data = kv_data
-        self.virtual_nodes = {}
+        self.RING_metadata = {}
 
-        # print('Getting keys of kvservers..')
-
-        # Assign each address to a partition in the hashing ring
-        for server in self.kv_data.values():
-            hash_key = self.hash(f"{server['host']}:{server['port']}")
-            server['hash_key'] = hash_key
-            self.virtual_nodes[hash_key] = (server['host'], server['port'])
-
-
-
-
-        # # Create a new dictionary with updated keys
-        # self.virtual_nodes = {new_key: self.virtual_nodes[old_key] for old_key, new_key in
-        #             zip(self.virtual_nodes.keys(),
-        #                 ['f0000000000000000000000000000000',
-        #                  '10000000000000000000000000000000',
-        #                  'a0000000000000000000000000000000',
-        #                  '20000000000000000000000000000000'])}
-        #
-        # for server in self.kv_data.values():
-        #     for key, value in self.virtual_nodes.items():
-        #         if server['port'] == value[1]:
-        #             server['hash_key'] = key
-        #             break
-
-        self.hash_intervals()
-        # formatted_dict = json.dumps(self.kv_data, indent=4)
-        # print(formatted_dict)
-
-
-    def hash_intervals(self):
-        self.virtual_nodes = {k: self.virtual_nodes[k] for k in sorted(self.virtual_nodes)}
-        previous_hash = list(self.virtual_nodes.keys())[-1]
-        for node in self.virtual_nodes:
-            for server in self.kv_data.values():
-                if server['hash_key'] == node:
-                    server['previous_hash'] = previous_hash
-                    previous_hash = server['hash_key']
-
-
-
-    def find_server_for_key(self,kvdata_part, key):
-        identifier, hash_key = self.hash(key)
-        partition = kvdata_part[0]['hash_key']
-
-        for server in kvdata_part.values():
-            if server['hash_key'] <= hash_key:
-                partition = server['id']
-        return partition
+    def new_node(self, kvserver, host, port):
+        hash = self.hash(f'{host}:{port}')
+        kvserver['hash_key'] = hash
+        self.RING_metadata[hash] = [host, port, hash]
+        self.update_ring()
 
 
     def hash(self, key):
         md5_hash = hashlib.md5(key.encode()).hexdigest()
-        # identifier = int(md5_hash[:2], 16)
-
+        md5_hash = int(md5_hash[:3], 16)
         return md5_hash
+
+
+    def update_ring(self):
+        if len(self.RING_metadata) == 0:
+            print('ERROR in update_ring: Function should not be called if 0 nodes')
+            exit(1)
+        else:
+            self.RING_metadata = {k: self.RING_metadata[k] for k in sorted(self.RING_metadata)}
+
+            previous_hash = list(self.RING_metadata.keys())[-1]
+            for key, values in self.RING_metadata.items():
+                if len(values) > 3:
+                    values[-1] = previous_hash
+                else:
+                    values.append(previous_hash)
+                previous_hash = key
+
+            for index, hash_key in enumerate(list(self.RING_metadata.keys())):
+                for server in self.kv_data.values():
+                    if server['active'] is False:
+                        continue
+                    if server['hash_key'] == hash_key:
+                        server['previous_hash'] = list(self.RING_metadata.keys())[index - 1]
+                        continue
+
+
+
+
+
 
 
 

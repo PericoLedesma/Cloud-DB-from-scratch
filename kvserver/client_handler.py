@@ -25,12 +25,12 @@ class Client_handler:
         clients_conn[client_id] = self
 
         self.cache_init(cache_cap, cache_type)
-        self.handle_conn()
+        self.handle_CONN()
 
         clients_conn[client_id] = None
         del self
 
-    def handle_conn(self):
+    def handle_CONN(self):
         self.kvprint(f' Connected')
         self.handle_RESPONSE(self.welcome_msg)
 
@@ -45,7 +45,7 @@ class Client_handler:
                         if msg is None or msg == " " or not msg:
                             break
                         else:
-                            response = self.handle_REQUEST(msg)
+                            response = self.handle_RECV(msg)
                             self.kvprint(f' {response}')
                             self.handle_RESPONSE(response)
                             if response == 'End connection':
@@ -62,7 +62,7 @@ class Client_handler:
         self.client_fd.close()
 
 
-    def handle_REQUEST(self, msg):
+    def handle_RECV(self, msg):
         method, *args = msg.split()
         self.cache.print_cache()
         if method == 'put' and len(args) > 1:
