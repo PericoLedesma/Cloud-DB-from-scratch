@@ -12,20 +12,37 @@ import asyncio
 #         counter += 1
 
 
+class MyClass:
+    def __init__(self):
+        self.name = {}
+        self.class2 = MyClass2(self.name)
+        print(self.name)
 
 
 
-async def greet(name):
-    print(f"Hello, {name}!")
-    # await asyncio.sleep(1)  # Simulate some async operation
-    print(f"Goodbye, {name}!")
 
-async def main():
-    tasks = [
-        asyncio.create_task(greet("Alice")),
-        asyncio.create_task(greet("Bob")),
-    ]
+class MyClass2:
+    def __init__(self, name):
+        self.name = name
+        self.start_thread()
 
-    await asyncio.gather(*tasks)
+    def start_thread(self):
+        self.name['k1']= 'p'
 
-asyncio.run(main())
+
+pedro = MyClass()
+
+# async def greet(name):
+#     print(f"Hello, {name}!")
+#     # await asyncio.sleep(1)  # Simulate some async operation
+#     print(f"Goodbye, {name}!")
+#
+# async def main():
+#     tasks = [
+#         asyncio.create_task(greet("Alice")),
+#         asyncio.create_task(greet("Bob")),
+#     ]
+#
+#     await asyncio.gather(*tasks)
+#
+# asyncio.run(main())

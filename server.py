@@ -47,7 +47,7 @@ class KeyValueServer:
         # Cache settings
         self.cache_strategy = self.FIFO
 
-        # Cache data structures
+        # Cache kv_data structures
         self.fifo_cache = OrderedDict()
         # self.lru_cache = lru_cache(maxsize=self.cache_size)
         self.lru_cache = LRUCache(cache_size)

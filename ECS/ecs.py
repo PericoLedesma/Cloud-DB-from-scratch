@@ -9,7 +9,9 @@ import hashlib
 import threading
 import json
 import os
+
 os.system('cls' if os.name == 'nt' else 'clear')
+
 
 class ECS:
     def __init__(self, host, port, directory, num_kvservers):
@@ -18,32 +20,21 @@ class ECS:
         self.cli = f'[ECS]>'
         self.host = host
         self.port = port
-        self.timeout = 20
 
-        self.num_kvservers = num_kvservers
-        self.kvs_inputs = []
-        self.kvs_outputs = []
+        self.tictac = time.time()
+        self.timeout = 30  # Note: It has to be bigger than the kvserver one.
 
-        self.kv_data = {}
+        self.kvs_connected = {}  # Here we store the sockets of the connected kvservers
+        self.kvs_data = {}  # Data to store all the information of the kvs
 
-        self.server_bootstrap()
-        self.hash_class = ConsistentHashing(self.kv_data)
+        self.server_bootstrap(num_kvservers)
+        self.hash_class = ConsistentHashing(self.kvs_data)
 
-
-
-        # thread = threading.Thread(target=self.listen_to_kvservers())
-        # thread.start()
-
-        print('-----lines continuees---')
-
-        # # time.sleep(5)
-        # self.ecsprint(f'Sending msg')
-        # for sock in self.kvs_inputs:
-        #     self.handle_REPLY(f' BYE KvSERVER', sock)
+        thread = threading.Thread(target=self.listen_to_kvservers())
+        thread.start()
 
         self.ecsprint(f'Closing ECS')
         exit(0)
-
 
     def listen_to_kvservers(self):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -52,58 +43,42 @@ class ECS:
         server_socket.bind((self.host, self.port))
         server_socket.listen()
         # server_socket.setblocking(0)
-
-        self.inputs = [server_socket]
-        self.kv_sockets = {}
         self.ecsprint(f'Listening on {self.host}:{self.port}')
-        start_time = time.time()
-        while True:
-            self.ecsprint(f'Listening...')
-            readable, _, _ = select.select(self.inputs, [], [], 5)
-            self.ecsprint(f'Readable:{len(readable)}|self.inputs:{len(self.inputs)}')
+        self.heartbeat()
 
+        while True:
+            readable, _, _ = select.select([server_socket] + list(self.kvs_connected.keys()), [], [], 5)
             for sock in readable:
                 if sock is server_socket:
                     kv_sock, kv_addr = server_socket.accept()
                     self.ecsprint(f'New kvserver connected: {kv_addr}')
+                    self.handle_json_REPLY(kv_sock, 'kvserver_data')  # Asking for kv_data. We need to know the host
 
-                    # Asking for data
-                    self.handle_json_REPLY(kv_sock, 'kvserver_data')
-
-                    # Storing data
-                    self.kv_sockets[kv_sock] = {'addr': kv_addr,
-                                                'sock': kv_sock,
-                                                'last_activity': time.time()}
-
-                    self.inputs.append(kv_sock)
-                    start_time = time.time()
+                    self.kvs_connected[kv_sock] = {'addr': kv_addr,
+                                                   'sock': kv_sock,
+                                                   'last_activity': time.time()}
+                    self.heartbeat()
                 else:
                     try:
                         data = sock.recv(128 * 1024).decode()
                         if data:
                             self.ecsprint(f'Received data from {self.kv_id(sock)}')
                             self.handle_RECV(data, sock)
-                            start_time = time.time()
+                            self.heartbeat()
                         else:
                             self.ecsprint(f'No data. Disconnected {self.kv_id(sock)} --> Closing socket', c='r')
-                            self.inputs.remove(sock)
                             sock.close()
-                            del self.kv_sockets[sock]
-
+                            del self.kvs_connected[sock]
                     except Exception as e:
                         self.ecsprint(f'Exception: {e} --> Closing socket', c='r')
                         sock.close()
-                        if sock in self.inputs:
-                            self.inputs.remove(sock)
-                            self.ecsprint(f'\tDeleted socket from list of self.inputs', c='r')
-
-            if (time.time() - start_time) >= self.timeout:
+                        del self.kvs_connected[sock]
+            if (time.time() - self.tictac) >= self.timeout:
                 self.ecsprint(f'Time out.Stop listening')
                 break
+            else:
+                self.ecsprint(f'Waiting... Active kvservers:{len(self.kvs_connected)}')
         server_socket.close()
-
-
-
 
     def handle_RECV(self, data, sock):
         messages = data.replace('\\r\\n', '\r\n').split('\r\n')
@@ -115,32 +90,37 @@ class ECS:
                 try:
                     parsedata = json.loads(msg)
                     request = parsedata.get('request')
-                    # self.ecsprint(f'Request: {repr(request)}')
-
-                    if request == 'kvserver_data': # Welcome msg
+                    if request == 'kvserver_data':  # Welcome msg
                         data = parsedata.get('data', {})
                         id = data.get('id')
                         host = data.get('host')
                         port = data.get('port')
-                        if id in self.kv_data:
-                            if self.kv_data[id]['port'] != port or \
-                                    self.kv_data[id]['host'] != host:
+                        if id in self.kvs_data:
+                            if self.kvs_data[id]['port'] != port or \
+                                    self.kvs_data[id]['host'] != host:
                                 print('ERROR. Metadata of kvserver doesnt match')
                         else:
-                            self.kv_data[id]={
+                            self.ecsprint(f'New kvserver!, Current ids:[{list(self.kvs_data)}]|New:[{id}]', c='r')
+                            self.kvs_data[id] = {
                                 'id': id,
                                 'name': f'kvserver{id}',
                                 'host': host,
                                 'port': port
                             }
-                            self.ecsprint(f'New kvserver!, not stored before.', c='r')
-
-                        self.kv_data[id]['sock'] = sock
-                        self.kv_data[id]['active'] = True
-
-                        self.hash_class.new_node(self.kv_data[id], host, port)
-                        # self.broadcast(self):
-                        self.handle_json_REPLY(sock, 'ring_metadata', self.kv_data[id])
+                        self.kvs_data[id]['sock'] = sock
+                        self.kvs_data[id]['active'] = True
+                        self.kvs_connected[sock] = {'addr': sock.getpeername(),
+                                                    'sock': sock,
+                                                    'last_activity': time.time()}
+                        self.hash_class.new_node(self.kvs_data[id], host, port)
+                        print(
+                            f'Connected socket = {len(self.kvs_connected.keys())}| Ring nodes: {len(self.hash_class.RING_metadata)}')
+                        if len(self.hash_class.RING_metadata) == len(self.kvs_connected.keys()):
+                            self.broadcast('ring_metadata')
+                        else:
+                            print('Waiting all kvserver connected to be added to ring')
+                    elif request == 'heartbeat':
+                        self.heartbeat()
                     else:
                         self.ecsprint(f'error unknown command!', c='r')
 
@@ -148,37 +128,34 @@ class ECS:
                     self.ecsprint(f'Error handling request\parsing JSON: {str(e)}', c='r')
                     self.handle_REPLY(f'{self.cli}Message received: {msg}', sock)
 
-    # def broadcast(self):
-    #     for socket in
-
-
+    def broadcast(self, request):
+        self.ecsprint(f'Broadcasting [{request}]...  ')
+        for sock in self.kvs_connected:
+            self.handle_json_REPLY(sock, request)
 
     def handle_REPLY(self, response, sock):
         sock.sendall(bytes(f'{response}\r\n', encoding='utf-8'))
 
-
-    def handle_json_REPLY(self, sock, request, kvserver=None):
+    def handle_json_REPLY(self, sock, request):
         try:
-            json_data = json.dumps(self.REPLY_templates(request, kvserver))
+            json_data = json.dumps(self.REPLY_templates(request))
             sock.sendall(bytes(f'{json_data}\r\n', encoding='utf-8'))
         except Exception as e:
             self.ecsprint(f'Error while sending the data: {e}', c='r')
 
-
-    def REPLY_templates(self, request, kvserver):
+    def REPLY_templates(self, request):
         if request == 'kvserver_data':
             return {
                 'request': 'kvserver_data'
             }
-        elif request == 'kvserver_hash_key':
-            return {
-                'request': 'kvserver_hash_key',
-                'data': {
-                    'id': kvserver['id'],
-                    'name': kvserver['name']
-                }
-            }
         elif request == 'ring_metadata':
+            list_kvservers = []
+            for key, value in self.hash_class.RING_metadata.items():
+                for id, server in self.kvs_data.items():
+                    if value[0] == server['host'] and value[1] == server['port']:
+                        list_kvservers.append(id)
+                        continue
+            self.ecsprint(f'Sending ring to {list_kvservers} . Number of kv_servers in ring: {len(self.hash_class.RING_metadata)}')
             return {
                 'request': 'ring_metadata',
                 'data': self.hash_class.RING_metadata
@@ -186,7 +163,17 @@ class ECS:
         else:
             self.ecsprint(f'{self.cli}Message templates. Request not found:{request}')
 
+    def heartbeat(self):
+        self.tictac = time.time()
+        # self.ecsprint(f'Pum pum', c='g')
 
+    def kv_id(self, sock):
+        try:
+            for key, values in self.kvs_data.items():
+                if values['sock'] == sock:
+                    return values['name']
+        except:
+            return sock.getpeername()
 
     def ecsprint(self, *args, c=None):
         COLORS = {
@@ -206,29 +193,17 @@ class ECS:
         # if log == 'i':
         #     self.log.info(f'{self.cli}{message}')
 
-    def kv_id(self, sock):
-        try:
-            for key, values in self.kv_data.items():
-                if values['sock'] == sock:
-                    return values['name']
-        except:
-            return sock.getpeername()
-
-
-    def server_bootstrap(self):
-        self.ecsprint(f'Server bootstrap...')
+    def server_bootstrap(self, num_kvservers):
         current_dir = os.path.abspath(os.path.dirname(__file__))
         parent_dir = os.path.abspath(os.path.join(current_dir, os.pardir))
         script_path = os.path.join(parent_dir, 'kvserver', 'kvserver.py')
 
-        port = 3000 #todo
+        port = 3000  # todo
         addr = '127.0.0.1'
-
         bootstrap = f'{self.host}:{self.port}'
 
         self.ecsprint(f'Starting kvservers... Bootstrap addr:{bootstrap}')
-        for n in range(self.num_kvservers):
-
+        for n in range(num_kvservers):
             try:
                 command = ['python',
                            script_path,
@@ -238,21 +213,18 @@ class ECS:
                            f'-p {(port + n)}'
                            ]
                 result = subprocess.Popen(command)
-                self.kv_data[n] = {'id': n,
-                                   'name': f'kvserver{n}',
-                                   'port': (port + n),
-                                   'host': addr,
-                                   'active': False}
-
+                self.kvs_data[n] = {'id': n,
+                                    'name': f'kvserver{n}',
+                                    'port': (port + n),
+                                    'host': addr,
+                                    'active': False}
             except Exception as e:
                 self.ecsprint(f'Error starting server {n}: {str(e)}')
-
             # if result.returncode == 0:
             #     self.ecsprint(f'The script ran successfully.')
             # else:
             #     self.ecsprint(f'The script encountered an error.')
-        self.ecsprint(f'Server bootstrap done. Number of server started: {len(self.kv_data)}/{self.num_kvservers}')
-
+        self.ecsprint(f'Server bootstrap done. Number of server started: {len(self.kvs_data)}/{num_kvservers}')
 
 
 def main():
@@ -273,5 +245,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-

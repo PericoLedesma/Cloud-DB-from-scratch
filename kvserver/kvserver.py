@@ -10,6 +10,7 @@ import logging
 import select
 import random
 
+
 class KVServer:
     def __init__(self, addr, port, ecs_addr, id, cache_strategy, cache_size, log_level, log_file, directory, max_conn):
         # Server parameters
@@ -18,21 +19,24 @@ class KVServer:
 
         self.addr = "".join(addr.split())
         self.port = port
-
-
         self.ecs_addr = ecs_addr
+        self.kv_data = {'id': self.id,
+                        'name': self.name,
+                        'host': self.addr,
+                        'port': self.port,
+                        'ecs_addr': ecs_addr}
 
-        self.data = {'id': self.id, 'name': self.name, 'host': self.addr, 'port': self.port}
-
+        # Printing parameters
         self.cli = f'\t[{self.name}]>'
         self.cli_color = f"\033[38;5;{random.randint(1, 254)}m"
 
-        self.max_conn = max_conn
-        self.timeout = 5
-        self.lock = threading.Lock()
-        self.write_lock = True
+        self.tictac = time.time()
+        self.timeout = 20
 
-        #Cache
+        self.max_conn = max_conn
+        self.lock = threading.Lock()
+
+        # Cache
         self.c_strg = cache_strategy
         self.c_size = cache_size
 
@@ -44,14 +48,16 @@ class KVServer:
         self.init_log(log_level, log_file, directory)
         self.init_storage()
 
-        self.kvprint(f'---- KVSSERVER {id} ACTIVE -----Hosting in {self.addr}:{self.port}')
+        self.kvprint(f'---- KVSSERVER {id} ACTIVE -----  Hosting in {self.addr}:{self.port}')
 
-        self.ecs = ECS_handler(ecs_addr, self.data, [self.cli, self.cli_color, self.log])
+        self.ecs = ECS_handler(self.kv_data,
+                               [self.cli, self.cli_color, self.log],
+                               [self.heartbeat, self.tictac, self.timeout])
+
         self.listen_to_connections()
 
         self.kvprint(f'---- KVSSERVER {id} SLEEP -----')
         exit(0)
-
 
     def listen_to_connections(self):
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -61,52 +67,52 @@ class KVServer:
         server.listen()
 
         self.kvprint(f'Listening on {self.addr}:{self.port}')
-        start_time = time.time()
+        self.heartbeat()
 
         while True:
             # time.sleep(2)
-            self.kvprint(f'->Listening...')
             readable, _, _ = select.select([server] + [self.ecs.sock], [], [], 5)
-            self.kvprint(f'ECS:{len({self.ecs.sock})}|Readable:{len(readable)}')
-
             for sock in readable:
                 if sock is server:
                     conn, addr = sock.accept()
                     self.kvprint(f'Connection accepted: {addr}', log='i')
-
                     client_thread = threading.Thread(target=self.init_client_handler, args=(conn, addr))
                     client_thread.start()
-                    start_time = time.time()
-
+                    self.heartbeat()
                 elif sock == self.ecs.sock:
-                    self.kvprint(f' Message from ECS..', log='i')
                     self.ecs.handle_CONN()
                 else:
-                    self.kvprint(f'OUTSIDE SOCKET NOT FOLLOW.CHECK. Socket out of list')
+                    self.kvprint(f'OUTSIDE, SOCKET NOT FOLLOW. CHECK. Socket out of list')
 
-            if not self.check_active_clients() and (time.time() - start_time) >= self.timeout:
+            if not self.check_active_clients() and (time.time() - self.tictac) >= self.timeout:
                 self.kvprint(f' Closing kvserver')
                 break
+            if self.ecs.sock.fileno() < 0:
+                self.kvprint(f'ECS connection lost. Tictac:{time.time() - self.tictac}/{self.timeout}')
+                self.ecs.connect_to_ECS()
 
+    def heartbeat(self):
+        self.tictac = time.time()
+        self.ecs.send_heartbeat()
+        # self.kvprint(f'Pum pum', c='g')
 
     def init_client_handler(self, conn, addr):
-        client_id = None #TODO rethink client organization
+        client_id = None  # TODO rethink client organization
         for key, value in self.clients_conn.items():
             if value is None:
-                client_id = key #Todo store client by addr -> id
+                client_id = key  # Todo store client by addr -> id
                 break
         if client_id is None:
             self.kvprint(f' ERROR client id selections')
 
-        Client_handler(client_fd=conn,
-                        client_id=client_id,
-                        clients_conn=self.clients_conn,
-                        cache_type=self.c_strg,
-                        cache_cap=self.c_size,
-                        lock=self.lock,
+        Client_handler(client_data=[self.kv_data, client_id, conn, addr],
+                       clients_conn=self.clients_conn,
+                       ring_metadata=self.ecs.ring_metadata,
+                       cache_config=[self.c_strg, self.c_size],
+                       lock=self.lock,
                        storage_dir=self.storage_dir,
-                       printer_config=[self.cli, self.cli_color, self.log])
-
+                       printer_config=[self.cli, self.cli_color, self.log],
+                       timeout_config=[self.heartbeat, self.tictac, self.timeout])
 
     def check_active_clients(self):
         count = sum(value is not None for value in self.clients_conn.values())
@@ -116,7 +122,7 @@ class KVServer:
                 continue
             else:
                 active_ids.append(value.client_id)
-        self.kvprint(f' Active clients: {count}, Ids: {active_ids}')
+        self.kvprint(f'Waiting... Active clients: {count}, Ids: {active_ids}. Ecs fd:{self.ecs.sock.fileno()}')
         return count
 
     def init_storage(self):
@@ -141,9 +147,6 @@ class KVServer:
             self.log.debug(f'{self.cli}{message}')
         if log == 'i':
             self.log.info(f'{self.cli}{message}')
-
-
-
 
     def init_log(self, log_level, log_file, directory):
         if directory is None or directory == '.':
@@ -197,7 +200,6 @@ def main():
 
 if __name__ == '__main__':
     main()
-
 
 # python kvserver.py -i 0 -p 4001 -b 127.0.0.1:8000
 # python kvserver.py -i 1 -p 4002 -b 127.0.0.1:8000

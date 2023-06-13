@@ -3,7 +3,7 @@ import json
 
 class ConsistentHashing:
     def __init__(self, kv_data):
-        self.kv_data = kv_data
+        self.kvs_data = kv_data
         self.RING_metadata = {}
 
     def new_node(self, kvserver, host, port):
@@ -35,7 +35,7 @@ class ConsistentHashing:
                 previous_hash = key
 
             for index, hash_key in enumerate(list(self.RING_metadata.keys())):
-                for server in self.kv_data.values():
+                for server in self.kvs_data.values():
                     if server['active'] is False:
                         continue
                     if server['hash_key'] == hash_key:

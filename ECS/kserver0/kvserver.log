@@ -1,0 +1,22 @@
+2023-06-13 15:33:38,026 - DEBUG - 	[kvserver0]>[38;5;150m	[kvserver0]>---- KVSSERVER 0 ACTIVE -----  Hosting in 127.0.0.1:3000[0m
+2023-06-13 15:33:38,026 - DEBUG - 	[kvserver0]>[ECS handler]>[38;5;150m	[kvserver0]>[ECS handler]>Connecting to bootstrap 127.0.0.1:7000...[0m
+2023-06-13 15:33:38,026 - DEBUG - 	[kvserver0]>[ECS handler]>[38;5;150m	[kvserver0]>[ECS handler]>Connected to ECS. Connection addr: 127.0.0.1:62468[0m
+2023-06-13 15:33:38,026 - DEBUG - 	[kvserver0]>[38;5;150m	[kvserver0]>Listening on 127.0.0.1:3000[0m
+2023-06-13 15:33:41,031 - DEBUG - 	[kvserver0]>[ECS handler]>[38;5;150m	[kvserver0]>[ECS handler]>Received message: '{"request": "kvserver_data"}'[0m
+2023-06-13 15:33:41,032 - DEBUG - 	[kvserver0]>[38;5;150m	[kvserver0]>Waiting... Active clients: 0, Ids: []. Ecs fd:5[0m
+2023-06-13 15:33:44,042 - DEBUG - 	[kvserver0]>[ECS handler]>[38;5;150m	[kvserver0]>[ECS handler]>Received message: '{"request": "ring_metadata", "data": {"28": ["127.0.0.1", 3000, 28, 2241], "2241": ["127.0.0.1", 3001, 2241, 28]}}'[0m
+2023-06-13 15:33:44,043 - DEBUG - 	[kvserver0]>[ECS handler]>[38;5;150m	[kvserver0]>[ECS handler]>Updated RING. Number of kv_servers: 2[0m
+2023-06-13 15:33:44,043 - DEBUG - 	[kvserver0]>[38;5;150m	[kvserver0]>Waiting... Active clients: 0, Ids: []. Ecs fd:5[0m
+2023-06-13 15:33:44,044 - INFO - 	[kvserver0]>[38;5;150m	[kvserver0]>Connection accepted: ('127.0.0.1', 62477)[0m
+2023-06-13 15:33:44,045 - DEBUG - 	[kvserver0]>[Handler C1]>[38;5;150m	[kvserver0]>[Handler C1]> Connected[0m
+2023-06-13 15:33:44,046 - DEBUG - 	[kvserver0]>[38;5;150m	[kvserver0]>Waiting... Active clients: 1, Ids: [1]. Ecs fd:5[0m
+2023-06-13 15:33:44,046 - DEBUG - 	[kvserver0]>[Handler C1]>[38;5;150m	[kvserver0]>[Handler C1]>Reply sent:Connection to KVServer established: /127.0.0.1 / 3000[0m
+2023-06-13 15:33:47,894 - DEBUG - 	[kvserver0]>[Handler C1]>[91m	[kvserver0]>[Handler C1]>Exception: 'NoneType' object is not subscriptable --> Closing socket[0m
+2023-06-13 15:33:49,047 - DEBUG - 	[kvserver0]>[38;5;150m	[kvserver0]>Waiting... Active clients: 1, Ids: [1]. Ecs fd:5[0m
+2023-06-13 15:33:54,049 - DEBUG - 	[kvserver0]>[38;5;150m	[kvserver0]>Waiting... Active clients: 1, Ids: [1]. Ecs fd:5[0m
+2023-06-13 15:33:59,054 - DEBUG - 	[kvserver0]>[38;5;150m	[kvserver0]>Waiting... Active clients: 1, Ids: [1]. Ecs fd:5[0m
+2023-06-13 15:34:04,006 - DEBUG - 	[kvserver0]>[38;5;150m	[kvserver0]>Waiting... Active clients: 1, Ids: [1]. Ecs fd:5[0m
+2023-06-13 15:34:07,843 - DEBUG - 	[kvserver0]>[Handler C1]>[91m	[kvserver0]>[Handler C1]>Time out client --> Closing socket[0m
+2023-06-13 15:34:09,008 - DEBUG - 	[kvserver0]>[38;5;150m	[kvserver0]>Waiting... Active clients: 0, Ids: []. Ecs fd:5[0m
+2023-06-13 15:34:09,008 - DEBUG - 	[kvserver0]>[38;5;150m	[kvserver0]> Closing kvserver[0m
+2023-06-13 15:34:09,009 - DEBUG - 	[kvserver0]>[38;5;150m	[kvserver0]>---- KVSSERVER 0 SLEEP -----[0m

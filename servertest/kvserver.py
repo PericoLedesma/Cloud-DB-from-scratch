@@ -59,8 +59,8 @@ if not message:
 # response2 = b'get_error apple123@# \r\n ppl'
 #
 #
-# method, *args = response2.decode().split('\r\n')
-# print(method)
+# request, *args = response2.decode().split('\r\n')
+# print(request)
 # print(args)
 #
 # print('-----')
@@ -119,9 +119,9 @@ if not message:
 #     response = "Hi kvclient!"
 #     client_socket.sendall(response.encode())
 #
-#     # Receive data from the kvclient
-#     data = client_socket.recv(1024).decode()
-#     print(f"Received message: {data}")
+#     # Receive kv_data from the kvclient
+#     kv_data = client_socket.recv(1024).decode()
+#     print(f"Received message: {kv_data}")
 #
 #     # Send a response back to the kvclient
 #     response = "Message received successfully!"
