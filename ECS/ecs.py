@@ -86,50 +86,58 @@ class ECS:
             if msg is None or msg == " " or not msg:
                 break
             else:
-                self.ecsprint(f'Received message: {repr(msg)}')
-                try:
-                    parsedata = json.loads(msg)
-                    request = parsedata.get('request')
-                    if request == 'kvserver_data':  # Welcome msg
-                        data = parsedata.get('data', {})
-                        id = data.get('id')
-                        host = data.get('host')
-                        port = data.get('port')
-                        if id in self.kvs_data:
-                            if self.kvs_data[id]['port'] != port or \
-                                    self.kvs_data[id]['host'] != host:
-                                print('ERROR. Metadata of kvserver doesnt match')
-                        else:
-                            self.ecsprint(f'New kvserver!, Current ids:[{list(self.kvs_data)}]|New:[{id}]', c='r')
-                            self.kvs_data[id] = {
-                                'id': id,
-                                'name': f'kvserver{id}',
-                                'host': host,
-                                'port': port
-                            }
-                        self.kvs_data[id]['sock'] = sock
-                        self.kvs_data[id]['active'] = True
-                        self.kvs_connected[sock] = {'addr': sock.getpeername(),
-                                                    'sock': sock,
-                                                    'last_activity': time.time()}
-                        self.hash_class.new_node(self.kvs_data[id], host, port)
-                        print(
-                            f'Connected socket = {len(self.kvs_connected.keys())}| Ring nodes: {len(self.hash_class.RING_metadata)}')
-                        if len(self.hash_class.RING_metadata) == len(self.kvs_connected.keys()):
-                            self.broadcast('ring_metadata')
-                        else:
-                            print('Waiting all kvserver connected to be added to ring')
-                    elif request == 'heartbeat':
-                        self.heartbeat()
-                    else:
-                        self.ecsprint(f'error unknown command!', c='r')
+                self.handle_REQUEST(msg, sock)
 
-                except Exception as e:
-                    self.ecsprint(f'Error handling request\parsing JSON: {str(e)}', c='r')
-                    self.handle_REPLY(f'{self.cli}Message received: {msg}', sock)
+
+    def handle_REQUEST(self, msg, sock):
+        self.ecsprint(f'Received message: {repr(msg)}')
+        try:
+            parsedata = json.loads(msg)
+            request = parsedata.get('request')
+            if request == 'kvserver_data':  # Welcome msg
+                data = parsedata.get('data', {})
+                id = data.get('id')
+                host = data.get('host')
+                port = data.get('port')
+                if id in self.kvs_data:
+                    if self.kvs_data[id]['port'] != port or \
+                            self.kvs_data[id]['host'] != host:
+                        print('ERROR. Metadata of kvserver doesnt match')
+                else:
+                    self.ecsprint(f'New kvserver!, Current ids:[{list(self.kvs_data)}]|New:[{id}]', c='r')
+                    self.kvs_data[id] = {
+                        'id': id,
+                        'name': f'kvserver{id}',
+                        'host': host,
+                        'port': port
+                    }
+                self.kvs_data[id]['sock'] = sock
+                self.kvs_data[id]['active'] = True
+                self.kvs_connected[sock] = {'addr': sock.getpeername(),
+                                            'sock': sock,
+                                            'last_activity': time.time()}
+                self.hash_class.new_node(self.kvs_data[id], host, port)
+
+                self.ecsprint(
+                    f'Connected socket = {len(self.kvs_connected.keys())}| Ring nodes: {len(self.hash_class.RING_metadata)}')
+                if len(self.hash_class.RING_metadata) == len(self.kvs_connected.keys()):
+                    self.broadcast('ask_ring_metadata')
+                    self.broadcast('write_lock_deact')
+                else:
+                    self.ecsprint(f'Waiting all kvserver connected to be added to ring')
+                    self.broadcast('write_lock_act')
+
+            elif request == 'heartbeat':
+                self.heartbeat()
+            else:
+                self.ecsprint(f'error unknown command!', c='r')
+
+        except Exception as e:
+            self.ecsprint(f'Error handling request\parsing JSON: {str(e)}', c='r')
+            self.handle_REPLY(f'{self.cli}Message received: {msg}', sock)
+
 
     def broadcast(self, request):
-        self.ecsprint(f'Broadcasting [{request}]...  ')
         for sock in self.kvs_connected:
             self.handle_json_REPLY(sock, request)
 
@@ -148,18 +156,20 @@ class ECS:
             return {
                 'request': 'kvserver_data'
             }
-        elif request == 'ring_metadata':
-            list_kvservers = []
-            for key, value in self.hash_class.RING_metadata.items():
-                for id, server in self.kvs_data.items():
-                    if value[0] == server['host'] and value[1] == server['port']:
-                        list_kvservers.append(id)
-                        continue
-            self.ecsprint(f'Sending ring to {list_kvservers} . Number of kv_servers in ring: {len(self.hash_class.RING_metadata)}')
+        elif request == 'ask_ring_metadata':
             return {
-                'request': 'ring_metadata',
+                'request': 'ask_ring_metadata',
                 'data': self.hash_class.RING_metadata
             }
+        elif request == 'write_lock_act':
+            return {
+                'request': 'write_lock_act'
+            }
+        elif request == 'write_lock_deact':
+            return {
+                'request': 'write_lock_deact'
+            }
+
         else:
             self.ecsprint(f'{self.cli}Message templates. Request not found:{request}')
 

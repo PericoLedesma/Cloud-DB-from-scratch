@@ -109,7 +109,7 @@ if not message:
 # # Listen for incoming connections
 # server_socket.listen()
 #
-# print(f"Server listening on {HOST}:{PORT}")
+# print(f"Server handle_CONN on {HOST}:{PORT}")
 #
 # while True:
 #     # Accept a kvclient connection

@@ -14,6 +14,7 @@ class ECS_handler:
 
         self.kv_data = kv_data
         self.ring_metadata = {}
+        self.write_lock = True
 
         self.heartbeat = timeout_config[0]
         self.tictac = timeout_config[1]
@@ -21,8 +22,8 @@ class ECS_handler:
 
         self.connect_to_ECS()
 
+
     def connect_to_ECS(self):
-        self.kvprint(f'Connecting to bootstrap {self.ecs_addr}:{self.ecs_port}...')
         RETRY_INTERVAL = 3
 
         while True:
@@ -30,7 +31,7 @@ class ECS_handler:
                 self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.sock.connect((self.ecs_addr, self.ecs_port))
                 self.addr, self.port = self.sock.getsockname()
-                self.kvprint(f'Connected to ECS. Connection addr: {self.addr}:{self.port}')
+                self.kvprint(f'Connected to ECS[{self.ecs_addr}:{self.ecs_port}]. Connection addr: {self.addr}:{self.port}')
                 break
             except socket.error as e:
                 self.kvprint(f'Connection error:{e}. Retrying in {RETRY_INTERVAL} seconds...')
@@ -49,7 +50,6 @@ class ECS_handler:
             else:
                 self.kvprint(f'No data. --> Closing socket', c='r')
                 self.sock.close()
-
         except Exception as e:
             self.kvprint(f'Exception: {e} --> Closing socket', c='r')
             self.sock.close()
@@ -67,8 +67,7 @@ class ECS_handler:
                     request = parsedata.get('request')
                     if request == 'kvserver_data':
                         self.handle_json_REPLY(request)
-
-                    elif request == 'ring_metadata':
+                    elif request == 'ask_ring_metadata':
                         self.ring_metadata = parsedata.get('data', {})
                         self.kvprint(f'Updated RING. Number of kv_servers: {len(self.ring_metadata)}')
                         for key, value in self.ring_metadata.items():
@@ -76,6 +75,11 @@ class ECS_handler:
                                 self.kv_data['hash_key'] = value[2]
                                 self.kv_data['previous_hash'] = value[3]
                                 break
+                    elif request == 'write_lock_act':
+                        self.write_lock = True
+                    elif request == 'write_lock_deact':
+                        self.write_lock = False
+                        self.kvprint(f'DEACTIVATE LOCK', c='r')
                     else:
                         self.kvprint(f'error unknown command!', c='r')
 
@@ -83,7 +87,7 @@ class ECS_handler:
                     self.kvprint(f'Error handling received. Not a json?: {str(e)}.', c='r')
 
     def handle_REPLY(self, response):
-        print('sending answer')
+        self.kvprint(f'Sending nromal answer')
         self.sock.sendall(bytes(f'{response}\r\n', encoding='utf-8'))
 
     def handle_json_REPLY(self, method):
@@ -133,3 +137,9 @@ class ECS_handler:
             self.print_cnfig[2].debug(f'{self.print_cnfig[0]}{self.cli}{message}')
         if log == 'i':
             self.print_cnfig[2].info(f'{self.print_cnfig[0]}|{self.cli}{message}')
+
+    def ask_ring_metadata(self):
+        return self.ring_metadata
+
+    def ask_lock_write_value(self):
+        return self.write_lock

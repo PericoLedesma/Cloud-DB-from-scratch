@@ -85,16 +85,17 @@ class KVServer:
                     self.kvprint(f'OUTSIDE, SOCKET NOT FOLLOW. CHECK. Socket out of list')
 
             if not self.check_active_clients() and (time.time() - self.tictac) >= self.timeout:
-                self.kvprint(f' Closing kvserver')
+                self.kvprint(f'Time out and no clients. Closing kvserver')
                 break
             if self.ecs.sock.fileno() < 0:
-                self.kvprint(f'ECS connection lost. Tictac:{time.time() - self.tictac}/{self.timeout}')
+                self.kvprint(f'ECS connection lost or close. Retrying to connect')
                 self.ecs.connect_to_ECS()
 
     def heartbeat(self):
         self.tictac = time.time()
         self.ecs.send_heartbeat()
         # self.kvprint(f'Pum pum', c='g')
+
 
     def init_client_handler(self, conn, addr):
         client_id = None  # TODO rethink client organization
@@ -107,9 +108,10 @@ class KVServer:
 
         Client_handler(client_data=[self.kv_data, client_id, conn, addr],
                        clients_conn=self.clients_conn,
-                       ring_metadata=self.ecs.ring_metadata,
+                       ask_ring_metadata=self.ecs.ask_ring_metadata,
                        cache_config=[self.c_strg, self.c_size],
                        lock=self.lock,
+                       ask_lock_write_value=self.ecs.ask_lock_write_value,
                        storage_dir=self.storage_dir,
                        printer_config=[self.cli, self.cli_color, self.log],
                        timeout_config=[self.heartbeat, self.tictac, self.timeout])

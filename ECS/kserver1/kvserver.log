@@ -1,16 +1,18 @@
-2023-06-13 15:33:38,030 - DEBUG - 	[kvserver1]>[38;5;35m	[kvserver1]>---- KVSSERVER 1 ACTIVE -----  Hosting in 127.0.0.1:3001[0m
-2023-06-13 15:33:38,030 - DEBUG - 	[kvserver1]>[ECS handler]>[38;5;35m	[kvserver1]>[ECS handler]>Connecting to bootstrap 127.0.0.1:7000...[0m
-2023-06-13 15:33:38,030 - DEBUG - 	[kvserver1]>[ECS handler]>[38;5;35m	[kvserver1]>[ECS handler]>Connected to ECS. Connection addr: 127.0.0.1:62469[0m
-2023-06-13 15:33:38,030 - DEBUG - 	[kvserver1]>[38;5;35m	[kvserver1]>Listening on 127.0.0.1:3001[0m
-2023-06-13 15:33:41,035 - DEBUG - 	[kvserver1]>[ECS handler]>[38;5;35m	[kvserver1]>[ECS handler]>Received message: '{"request": "kvserver_data"}'[0m
-2023-06-13 15:33:41,036 - DEBUG - 	[kvserver1]>[38;5;35m	[kvserver1]>Waiting... Active clients: 0, Ids: []. Ecs fd:5[0m
-2023-06-13 15:33:44,042 - DEBUG - 	[kvserver1]>[ECS handler]>[38;5;35m	[kvserver1]>[ECS handler]>Received message: '{"request": "ring_metadata", "data": {"28": ["127.0.0.1", 3000, 28, 2241], "2241": ["127.0.0.1", 3001, 2241, 28]}}'[0m
-2023-06-13 15:33:44,043 - DEBUG - 	[kvserver1]>[ECS handler]>[38;5;35m	[kvserver1]>[ECS handler]>Updated RING. Number of kv_servers: 2[0m
-2023-06-13 15:33:44,043 - DEBUG - 	[kvserver1]>[38;5;35m	[kvserver1]>Waiting... Active clients: 0, Ids: []. Ecs fd:5[0m
-2023-06-13 15:33:49,046 - DEBUG - 	[kvserver1]>[38;5;35m	[kvserver1]>Waiting... Active clients: 0, Ids: []. Ecs fd:5[0m
-2023-06-13 15:33:54,046 - DEBUG - 	[kvserver1]>[38;5;35m	[kvserver1]>Waiting... Active clients: 0, Ids: []. Ecs fd:5[0m
-2023-06-13 15:33:59,050 - DEBUG - 	[kvserver1]>[38;5;35m	[kvserver1]>Waiting... Active clients: 0, Ids: []. Ecs fd:5[0m
-2023-06-13 15:34:04,002 - DEBUG - 	[kvserver1]>[38;5;35m	[kvserver1]>Waiting... Active clients: 0, Ids: []. Ecs fd:5[0m
-2023-06-13 15:34:09,006 - DEBUG - 	[kvserver1]>[38;5;35m	[kvserver1]>Waiting... Active clients: 0, Ids: []. Ecs fd:5[0m
-2023-06-13 15:34:09,006 - DEBUG - 	[kvserver1]>[38;5;35m	[kvserver1]> Closing kvserver[0m
-2023-06-13 15:34:09,007 - DEBUG - 	[kvserver1]>[38;5;35m	[kvserver1]>---- KVSSERVER 1 SLEEP -----[0m
+2023-06-13 20:08:19,968 - DEBUG - 	[kvserver1]>[38;5;7m	[kvserver1]>---- KVSSERVER 1 ACTIVE -----  Hosting in 127.0.0.1:3001[0m
+2023-06-13 20:08:19,969 - DEBUG - 	[kvserver1]>[ECS handler]>[38;5;7m	[kvserver1]>[ECS handler]>Connected to ECS[127.0.0.1:7000]. Connection addr: 127.0.0.1:62804[0m
+2023-06-13 20:08:19,969 - DEBUG - 	[kvserver1]>[38;5;7m	[kvserver1]>Listening on 127.0.0.1:3001[0m
+2023-06-13 20:08:22,973 - DEBUG - 	[kvserver1]>[ECS handler]>[38;5;7m	[kvserver1]>[ECS handler]>Received message: '{"request": "kvserver_data"}'[0m
+2023-06-13 20:08:22,974 - DEBUG - 	[kvserver1]>[38;5;7m	[kvserver1]>Waiting... Active clients: 0, Ids: []. Ecs fd:5[0m
+2023-06-13 20:08:25,980 - DEBUG - 	[kvserver1]>[ECS handler]>[38;5;7m	[kvserver1]>[ECS handler]>Received message: '{"request": "write_lock_act"}'[0m
+2023-06-13 20:08:25,981 - DEBUG - 	[kvserver1]>[38;5;7m	[kvserver1]>Waiting... Active clients: 0, Ids: []. Ecs fd:5[0m
+2023-06-13 20:08:28,983 - DEBUG - 	[kvserver1]>[ECS handler]>[38;5;7m	[kvserver1]>[ECS handler]>Received message: '{"request": "ask_ring_metadata", "data": {"28": ["127.0.0.1", 3000, 28, 2241], "2241": ["127.0.0.1", 3001, 2241, 28]}}'[0m
+2023-06-13 20:08:28,985 - DEBUG - 	[kvserver1]>[ECS handler]>[38;5;7m	[kvserver1]>[ECS handler]>Updated RING. Number of kv_servers: 2[0m
+2023-06-13 20:08:28,985 - DEBUG - 	[kvserver1]>[ECS handler]>[38;5;7m	[kvserver1]>[ECS handler]>Received message: '{"request": "write_lock_deact"}'[0m
+2023-06-13 20:08:28,985 - DEBUG - 	[kvserver1]>[ECS handler]>[91m	[kvserver1]>[ECS handler]>DEACTIVATE LOCK[0m
+2023-06-13 20:08:28,986 - DEBUG - 	[kvserver1]>[38;5;7m	[kvserver1]>Waiting... Active clients: 0, Ids: []. Ecs fd:5[0m
+2023-06-13 20:08:33,987 - DEBUG - 	[kvserver1]>[38;5;7m	[kvserver1]>Waiting... Active clients: 0, Ids: []. Ecs fd:5[0m
+2023-06-13 20:08:38,988 - DEBUG - 	[kvserver1]>[38;5;7m	[kvserver1]>Waiting... Active clients: 0, Ids: []. Ecs fd:5[0m
+2023-06-13 20:08:43,994 - DEBUG - 	[kvserver1]>[38;5;7m	[kvserver1]>Waiting... Active clients: 0, Ids: []. Ecs fd:5[0m
+2023-06-13 20:08:48,998 - DEBUG - 	[kvserver1]>[38;5;7m	[kvserver1]>Waiting... Active clients: 0, Ids: []. Ecs fd:5[0m
+2023-06-13 20:08:48,998 - DEBUG - 	[kvserver1]>[38;5;7m	[kvserver1]>Time out and no clients. Closing kvserver[0m
+2023-06-13 20:08:48,998 - DEBUG - 	[kvserver1]>[38;5;7m	[kvserver1]>---- KVSSERVER 1 SLEEP -----[0m
