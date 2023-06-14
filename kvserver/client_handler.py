@@ -13,8 +13,8 @@ import hashlib
 # ------------------------------------------------------------------------
 class Client_handler:
     def __init__(self,
-                 client_data,
                  clients_conn,
+                 client_data,
                  ask_ring_metadata,
                  cache_config,
                  lock,
@@ -23,6 +23,7 @@ class Client_handler:
                  printer_config,
                  timeout_config):
 
+        self.clients_conn = clients_conn
         self.kv_data = client_data[0]
         self.client_id = client_data[1]
         self.client_fd = client_data[2]
@@ -31,6 +32,8 @@ class Client_handler:
         self.heartbeat = timeout_config[0]
         self.tictac = timeout_config[1]
         self.timeout = timeout_config[2]
+
+        self.write_lock = False
 
         self.client_fd.settimeout(self.timeout)
 
@@ -42,34 +45,30 @@ class Client_handler:
         self.storage_dir = storage_dir
 
         self.welcome_msg = f'Connection to KVServer established: /{self.client_fd.getsockname()[0]} / {self.client_fd.getsockname()[1]}'
-        # self.welcome_msg = 'hello'
         self.cli = f'[Handler C{self.client_id}]>'
         self.print_cnfig = printer_config
 
-        clients_conn[self.client_id] = self
-
+        # START
         self.cache_init(cache_config)
-
         self.kvprint(f' Connected')
         self.handle_RESPONSE(self.welcome_msg)
-        self.handle_CONN()
+        # self.handle_CONN()
 
+
+    def closing_handler(self, clients_conn):
         self.client_fd.close()
-
-        clients_conn[self.client_id] = None
+        clients_conn[self.client_id] = 'Closed'
         del self
+
 
     def handle_CONN(self):
         while self.conn_status:
-            while self.ask_lock_write_value():
-                self.kvprint(f'Lock activated. Lock = {self.ask_lock_write_value()}')
-                time.sleep(2)
             try:
-                self.kvprint(f'Lock deactivated. Processing data')
                 data = self.client_fd.recv(128 * 1024)
                 if data:
                     request = data.replace(b'\\r\\n', b'\r\n')
                     messages = request.decode().split('\r\n')
+
                     for msg in messages:
                         if msg is None or msg == " " or not msg:
                             break
@@ -79,26 +78,45 @@ class Client_handler:
                 else:
                     self.kvprint(f'No data --> Closing socket', c='r')
                     break
-
             except socket.timeout:
                 self.kvprint(f'Time out client --> Closing socket', c='r')
                 break
             except Exception as e:
                 self.kvprint(f'Exception: {e} --> Closing socket', c='r')
                 break
+        self.clients_conn[self.client_id] = None
+        self.client_fd.close()
 
     def handle_RECV(self, msg):
         method, *args = msg.split()
         self.cache.print_cache()
-        if method in ['put', 'get', 'delete']:  # Check if the key is for this server:
-            key = args[0]
-            if self.key_checker(key) is False:
-                print('Not for this server')  # Todo
-                kvs_target = self.search_interval(key)
+        if method in ['put', 'get', 'delete']:  # Some checks
+            if self.ask_lock_write_value():
+                self.handle_RESPONSE('server_stopped')
             else:
-                self.handle_REQUEST(method, *args)
-        else:
+                key = args[0]
+                hash = self.hash(key)
+                if self.key_checker(hash) is False:
+                    self.kvprint(f'Not for this server')
+                    self.handle_RESPONSE(f'server_not_responsible') # TODO delete args
+                else:
+                    if self.write_lock is False:
+                        self.handle_REQUEST(method, *args)
+                    else:
+                        if method in ['put', 'delete']:
+                            self.handle_RESPONSE(f'server_write_lock')
+                        elif method in ['get']:
+                            self.handle_REQUEST(method, *args)
+                        else:
+                            print('Error. Check this else1234')
+        elif method in ['keyrange']:
+            if self.ask_lock_write_value():
+                self.handle_RESPONSE('server_stopped')
             self.handle_REQUEST(method, *args)
+        elif method in ['show', 'keyrange', 'close']:
+            self.handle_REQUEST(method, *args)
+        else:
+            self.handle_RESPONSE('error unknown command!')
 
     def handle_REQUEST(self, request, *args):
         if request == 'put' and len(args) > 1:
@@ -121,6 +139,12 @@ class Client_handler:
         elif request == 'show':
             self.kvprint(f'Request => show db')
             self.handle_RESPONSE(self.print_storage())
+        elif request == 'keyrange':
+            self.kvprint(f'Request => keyrange')
+            message = ''
+            for value in self.ask_ring_metadata().values():  # Posible problem por el orden
+                message = f'{message}{value[-1]},{value[-2]},{value[0]}:{value[1]};'
+            self.handle_RESPONSE(message)
         elif request == 'close':
             self.kvprint(f'Request => close')
             self.conn_status = False
@@ -192,55 +216,57 @@ class Client_handler:
 
     def handle_RESPONSE(self, response):
         self.kvprint(f'Reply sent:{response}')
-        self.client_fd.sendall(bytes(response, encoding='utf-8'))
+        self.client_fd.sendall(bytes(f'{response}\r\n', encoding='utf-8'))
 
-    def key_checker(self, key):
-        hash = self.hash(key)
-        ring_metadata = self.ask_ring_metadata()
-
-        print('RING interval for hash=', hash)
-        for key, value in ring_metadata.items():
-            print(key, '|', value)
-
-        if len(ring_metadata) == 1:
-            self.kvprint('key_checker: Just one server. Proceed')
+    def key_checker(self, hash):
+        if len(self.ask_ring_metadata()) == 1:
+            self.kvprint(f'key_checker: Just one server. Proceed')
             return True
-        elif len(ring_metadata) > 1:
-            list_hash = list(ring_metadata).copy()
-            for i in range(len(list_hash)):
-                list_hash[i] = int(list_hash[i])
-            list_hash.sort()
-
-            if list_hash[0] == self.kv_data['hash_key']:  # If it is the last range
-                if list_hash[-1] < hash or list_hash[0] > hash:
-                    print('key_checker: Last interval match')
+        elif len(self.ask_ring_metadata()) > 1:
+            list_hash = list(self.ask_ring_metadata()).copy()
+            sorted_hash_list = sorted(list_hash, key=lambda x: int(x, 16))
+            if sorted_hash_list[0] == self.kv_data['hash_key']:  # If it is the last range
+                if sorted_hash_list[-1] < hash or sorted_hash_list[0] > hash:
+                    self.kvprint(f'key_checker: Last interval match')
                     return True
                 else:
-                    print('key_checker: KVserver in last interval, but key hash not')
+                    self.kvprint(f'key_checker: KVserver in last interval, but key hash not')
                     return False
             else:
-                print(f'key_checker: kvs_interval[{self.kv_data["previous_hash"]}|{hash}|{self.kv_data["hash_key"]}')
+                self.kvprint(
+                    f'key_checker: kvs_interval[{self.kv_data["previous_hash"]}|{hash}|{self.kv_data["hash_key"]}')
                 if hash > self.kv_data['previous_hash'] and hash < self.kv_data['hash_key']:
-                    print('True')
+                    self.kvprint(f'True')
                     return True
                 else:
-                    print('key_checker: False')
+                    self.kvprint(f'key_checker: False')
                     return False
-        elif ring_metadata is None or ring_metadata == {}:
+        elif self.ask_ring_metadata() is None or self.ask_ring_metadata() == {}:
             self.kvprint('Error in key_checker. ring_metadata EMPTY', c='r')
+            return None
         else:
             self.kvprint('Error in key_checker. Outside the logic. Check. ', c='r')
+            return None
 
     def search_interval(self, hash):
-        for key, value in self.ask_ring_metadata().items():
-            if hash > value['previous_hash'] and hash < value['hash_key']:
-                print(f'Interval founded [{value["previous_hash"]}|{hash}|{value["hash_key"]}')
-                print('Target kvserver:', value)
-                return value
+        list_hash = list(self.ask_ring_metadata()).copy()
+        sorted_hash_list = sorted(list_hash, key=lambda x: int(x, 16))
+
+        if sorted_hash_list[-1] < hash or sorted_hash_list[0] > hash:
+            self.kvprint(f'key_checker: Last interval match')
+            host = self.ask_ring_metadata()[sorted_hash_list[0]][0]
+            port = self.ask_ring_metadata()[sorted_hash_list[0]][1]
+            return f'{host}:{port}'
+        else:
+            for key, item in self.ask_ring_metadata().items():
+                if hash > item[-1] and hash < item[-2]:
+                    self.kvprint(f'Interval founded [{item[-1]}|{hash}|{item[-2]}')
+                    self.kvprint(f'Target kvserver:', item[0], ':', item[1])
+                    return f'{item[0]}:{item[1]}'
 
     def hash(self, key):
         md5_hash = hashlib.md5(key.encode()).hexdigest()
-        md5_hash = int(md5_hash[:3], 16)
+        # md5_hash = int(md5_hash[:3], 16)
         return md5_hash
 
     def cache_init(self, cache_config):

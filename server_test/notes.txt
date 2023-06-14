@@ -5,11 +5,12 @@ echo 'Running...'
 docker run -it -p 8000:8000 kv-server
 
 
+docker build -t ecs-server .
+docker run -it -p 8000:8000 ecs
 
+docker build -t ecs-server .
 
-
-
-
+docker build -t gitlab.lrz.de:5005/cdb-23/gr4/ms3 .
 
 docker run arg_py HELLO FROM TUTORIALSPOINT
 docker build -t arg_py .

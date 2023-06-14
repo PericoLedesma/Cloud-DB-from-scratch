@@ -1,42 +1,46 @@
 import socket
 import time
 import json
-
+import select
 
 class ECS_handler:
-    def __init__(self, kv_data, printer_config, timeout_config):
+    def __init__(self, kv_data,socket_pool, printer_config, timeout_config):
+        # ECS Server connection paramters
         self.ecs_addr, self.ecs_port = kv_data['ecs_addr'].split(':')
         self.ecs_addr = self.ecs_addr.replace(" ", "")
         self.ecs_port = int(self.ecs_port)
+        self.socket_pool = socket_pool
 
+        # Printing parameters
         self.cli = f'[ECS handler]>'
         self.print_cnfig = printer_config
 
+        # Data structures
         self.kv_data = kv_data
         self.ring_metadata = {}
+
+        # Lock write parameter
         self.write_lock = True
 
+        # Timeout and hearbeat parameters
         self.heartbeat = timeout_config[0]
         self.tictac = timeout_config[1]
         self.timeout = timeout_config[2]
 
-        self.connect_to_ECS()
-
-
     def connect_to_ECS(self):
         RETRY_INTERVAL = 3
-
         while True:
             try:
                 self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.sock.connect((self.ecs_addr, self.ecs_port))
                 self.addr, self.port = self.sock.getsockname()
+                self.socket_pool.append(self.sock)
                 self.kvprint(f'Connected to ECS[{self.ecs_addr}:{self.ecs_port}]. Connection addr: {self.addr}:{self.port}')
+                self.heartbeat()
                 break
             except socket.error as e:
                 self.kvprint(f'Connection error:{e}. Retrying in {RETRY_INTERVAL} seconds...')
                 time.sleep(RETRY_INTERVAL)
-
             if (time.time() - self.tictac) >= self.timeout:
                 self.kvprint(f'Stop retrying to connect to ECS', c='r')
                 break
@@ -69,6 +73,11 @@ class ECS_handler:
                         self.handle_json_REPLY(request)
                     elif request == 'ask_ring_metadata':
                         self.ring_metadata = parsedata.get('data', {})
+                        for key, values in self.ring_metadata.items(): # TODO delete when we just use str
+                            if len(values) != 4:
+                                raise Exception('Error recv ring metadata. Not complete table')
+                            values[-2] = str(values[-2])
+                            values[-1] = str(values[-1])
                         self.kvprint(f'Updated RING. Number of kv_servers: {len(self.ring_metadata)}')
                         for key, value in self.ring_metadata.items():
                             if value[0] == self.kv_data['host'] and value[1] == self.kv_data['port']:
@@ -77,17 +86,24 @@ class ECS_handler:
                                 break
                     elif request == 'write_lock_act':
                         self.write_lock = True
+                        self.kvprint(f'ACTIVATE LOCK', c='r')
                     elif request == 'write_lock_deact':
                         self.write_lock = False
                         self.kvprint(f'DEACTIVATE LOCK', c='r')
+                    elif request == 'reorganize_ring':
+                        data = parsedata.get('data', {})
+                        print('reorganize_ring')
+                        print(data)
+
                     else:
                         self.kvprint(f'error unknown command!', c='r')
 
                 except json.decoder.JSONDecodeError as e:
                     self.kvprint(f'Error handling received. Not a json?: {str(e)}.', c='r')
 
+
     def handle_REPLY(self, response):
-        self.kvprint(f'Sending nromal answer')
+        self.kvprint(f'Sending normal answer')
         self.sock.sendall(bytes(f'{response}\r\n', encoding='utf-8'))
 
     def handle_json_REPLY(self, method):
@@ -113,11 +129,20 @@ class ECS_handler:
             return {
                 'request': 'heartbeat'
             }
+        elif request == 'kvserver_shutdown':
+            print(self.kv_data)
+            return {
+                'request': 'kvserver_shutdown',
+                'data': self.kv_data
+            }
         else:
             self.kvprint(f'Message templates. Request not found:{request}', c='r')
 
     def send_heartbeat(self):
-        self.handle_json_REPLY('heartbeat')
+        if self.sock.fileno() >= 0:
+            self.handle_json_REPLY('heartbeat')
+        else:
+            self.kvprint(f'send_heartbeat. Not sent, Not connected', c='r')
 
     def kvprint(self, *args, c=None, log='d'):
         COLORS = {

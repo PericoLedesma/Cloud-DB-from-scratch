@@ -1,0 +1,6 @@
+2023-06-14 22:39:37,096 - DEBUG - [ECS]>[97m[ECS]> ==> Active ECS server on port 127.0.0.1:5002[0m
+2023-06-14 22:39:37,096 - DEBUG - [ECS]>[97m[ECS]>Listening on 127.0.0.1:5002[0m
+2023-06-14 22:39:42,100 - DEBUG - [ECS]>[97m[ECS]>Waiting... Active kvservers:0[0m
+2023-06-14 22:39:47,103 - DEBUG - [ECS]>[97m[ECS]>Waiting... Active kvservers:0[0m
+2023-06-14 22:39:52,105 - DEBUG - [ECS]>[97m[ECS]>Time out.Stop listening[0m
+2023-06-14 22:39:52,105 - DEBUG - [ECS]>[97m[ECS]>Closing ECS[0m
