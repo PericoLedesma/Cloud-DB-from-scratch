@@ -1,8 +1,8 @@
 FROM python:3.9-slim-buster
 
-COPY . /kvserver
+COPY . /server
 
-WORKDIR /kvserver
+WORKDIR /server
 
 #RUN pip install -r requirements.txt
 

@@ -8,11 +8,12 @@ import json
 import os
 import logging
 
+
 os.system('cls' if os.name == 'nt' else 'clear')
 
 
 class ECS:
-    def __init__(self,log_level, log_file, host, port, directory, num_kvservers):
+    def __init__(self, log_level, log_file, host, port, directory, num_kvservers):
         self.cli = f'[ECS]>'
         self.host = host
         self.port = port
@@ -36,22 +37,20 @@ class ECS:
 
     def listen_to_kvservers(self):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.settimeout(5)
-        # server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server_socket.settimeout(10)
+        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server_socket.bind((self.host, self.port))
         server_socket.listen()
         # server_socket.setblocking(0)
         self.ecsprint(f'Listening on {self.host}:{self.port}')
-        self.heartbeat()
+        self.heartbeat(broadcast=False)
         try:
             while True:
-                readable, _, _ = select.select([server_socket] + list(self.kvs_connected.keys()), [], [], 5)
+                readable, _, _ = select.select([server_socket] + list(self.kvs_connected.keys()), [], [], 10)
                 for sock in readable:
                     if sock is server_socket:
                         kv_sock, kv_addr = server_socket.accept()
                         self.ecsprint(f'New kvserver connected: {kv_addr}')
-                        self.handle_json_REPLY(kv_sock, 'kvserver_data')  # Asking for kv_data. We need to know the host
-
                         self.kvs_connected[kv_sock] = {'addr': kv_addr,
                                                        'sock': kv_sock,
                                                        'last_activity': time.time()}
@@ -60,27 +59,26 @@ class ECS:
                         try:
                             data = sock.recv(128 * 1024).decode()
                             if data:
-                                self.ecsprint(f'Received data from {self.kv_id(sock)}')
                                 self.handle_RECV(data, sock)
                                 self.heartbeat()
                             else:
-                                self.ecsprint(f'No data. Disconnected {self.kv_id(sock)} --> Closing socket', c='r')
+                                self.ecsprint(f'No data. Disconnected {self.kv_id(sock)} --> Closing socket', log='e')
                                 # Todo we can lose data -> self.hash_class.remove_node() reorganize
                                 sock.close()
                                 del self.kvs_connected[sock]
                         except Exception as e:
-                            self.ecsprint(f'Exception: {e} --> Closing socket', c='r')
+                            self.ecsprint(f'Exception: {e} --> Closing socket', log='e')
                             # Todo we can lose data -> self.hash_class.remove_node() reorganize
                             sock.close()
                             del self.kvs_connected[sock]
                 if (time.time() - self.tictac) >= self.timeout:
-                    self.ecsprint(f'Time out.Stop listening')
+                    self.ecsprint(f'Time out. Stop listening', log='e')
                     break
                 else:
-                    self.ecsprint(f'Waiting... Active kvservers:{len(self.kvs_connected)}')
+                    self.ecsprint(f'Waiting... Active kvservers: [{len(self.kvs_connected)}]')
             server_socket.close()
         except KeyboardInterrupt:
-            print("Closing ECS server")
+            self.ecsprint(f"Closing ECS server", log='e')
             server_socket.close()
 
     def handle_RECV(self, data, sock):
@@ -92,62 +90,43 @@ class ECS:
                 self.handle_REQUEST(msg, sock)
 
     def handle_REQUEST(self, msg, sock):
-        self.ecsprint(f'Received message from {self.kv_id(sock)}: {repr(msg)}')
         try:
             parsedata = json.loads(msg)
             request = parsedata.get('request')
-            if request == 'kvserver_data':  # Welcome msg
+            self.kvs_connected[sock] = {'last_activity': time.time()}
+            self.ecsprint(f'Received message from {self.kv_id(sock)}: {request}')
+            # REQUESTS
+            if request == 'kvserver_data':  # New kvserver sending personal data
+
                 data = parsedata.get('data', {})
                 id = data.get('id')
-                host = data.get('host')
-                port = data.get('port')
-                if id in self.kvs_data:
-                    if self.kvs_data[id]['port'] != port or \
-                            self.kvs_data[id]['host'] != host:
-                        print('ERROR. Metadata of kvserver doesnt match')
-                else:
-                    self.ecsprint(f'New kvserver{id}!, Current ids:{list(self.kvs_data)}', c='r')
-                    self.kvs_data[id] = {
-                        'id': id,
-                        'name': f'kvserver{id}',
-                        'host': host,
-                        'port': port
-                    }
-                self.kvs_data[id]['sock'] = sock
-                self.kvs_data[id]['active'] = True
-                self.kvs_connected[sock] = {'addr': sock.getpeername(),
-                                            'sock': sock,
-                                            'last_activity': time.time()}
-                self.hash_class.new_node(self.kvs_data[id], host, port)
+                self.ecsprint(f'New kvserver{id}!, Current ids:{list(self.kvs_data)}')
 
-                self.ecsprint(
-                    f'Connected socket = {len(self.kvs_connected.keys())}| Ring nodes: {len(self.hash_class.RING_metadata)}')
-                if len(self.hash_class.RING_metadata) == len(self.kvs_connected.keys()):
-                    self.broadcast('ask_ring_metadata')
-                    self.broadcast('write_lock_deact')
-                else:
-                    self.ecsprint(f'Waiting all kvserver connected to be added to ring')
-                    self.broadcast('write_lock_act')
-
+                # Storing data
+                self.kvs_data[id] = {
+                    'id': id,
+                    'name': f'kvserver{id}',
+                    'host': data.get('host'),
+                    'port': data.get('port'),
+                    'sock': sock,
+                    'active': True
+                }
+                self.broadcast('write_lock_act')
+                self.ecsprint(f'Waiting all kvserver connected to be added to ring...')
+                self.hash_class.new_node(self.kvs_data[id])
+                self.ecsprint(f'Connected={len(self.kvs_connected.keys())}|Ring nodes:{len(self.hash_class.RING_metadata)}')
+                self.broadcast('ring_metadata')
             elif request == 'heartbeat':
                 self.heartbeat()
             elif request == 'kvserver_shutdown':
                 self.broadcast('write_lock_act')
-
                 kvdata = parsedata.get('data', {})
                 message = self.hash_class.remove_node(kvdata)
                 self.handle_json_REPLY(sock, f'reorganize_ring', message)
-
-
             else:
-                self.ecsprint(f'error unknown command!', c='r')
-
+                self.ecsprint(f'error unknown command!')
         except Exception as e:
-            self.ecsprint(f'Error handling request\parsing JSON: {str(e)}', c='r')
-            self.handle_REPLY(f'{self.cli}Message received: {msg}', sock)
-
-
-
+            self.ecsprint(f'Error handling request\parsing JSON: {str(e)}', log='e')
 
     def broadcast(self, request):
         for sock in self.kvs_connected:
@@ -158,19 +137,20 @@ class ECS:
 
     def handle_json_REPLY(self, sock, request, *args):
         try:
+            # self.ecsprint(f'Message sent: {request}')
             json_data = json.dumps(self.REPLY_templates(request, args))
             sock.sendall(bytes(f'{json_data}\r\n', encoding='utf-8'))
         except Exception as e:
-            self.ecsprint(f'Error while sending the data: {e}', c='r')
+            self.ecsprint(f'Error while sending the data: {e}', log='e')
 
     def REPLY_templates(self, request, args):
         if request == 'kvserver_data':
             return {
                 'request': 'kvserver_data'
             }
-        elif request == 'ask_ring_metadata':
+        elif request == 'ring_metadata':
             return {
-                'request': 'ask_ring_metadata',
+                'request': 'ring_metadata',
                 'data': self.hash_class.RING_metadata
             }
         elif request == 'write_lock_act':
@@ -181,17 +161,22 @@ class ECS:
             return {
                 'request': 'write_lock_deact'
             }
+        elif request == 'heartbeat':
+            return {
+                'request': 'heartbeat'
+            }
         elif request == 'reorganize_ring':
             return {
                 'request': 'reorganize_ring',
                 'data': args
             }
         else:
-            self.ecsprint(f'{self.cli}Message templates. Request not found:{request}')
+            self.ecsprint(f'Message templates. Request not found:{request}')
 
-    def heartbeat(self):
+    def heartbeat(self, broadcast=True):
         self.tictac = time.time()
-        # self.ecsprint(f'Pum pum', c='g')
+        if broadcast is True:
+            self.broadcast('heartbeat')
 
     def kvserver_shutdown(self, id, kvdata):
         id = kvdata.get('id')
@@ -207,43 +192,34 @@ class ECS:
             print('HERE', sock.getpeername())
             return sock.getpeername()
 
-    def ecsprint(self, *args, c=None, log='d'):
-        COLORS = {
-            'r': '\033[91m',
-            'g': '\033[92m',
-            'w': '\033[97m',
-            'reset': '\033[0m'
-        }
-        c = COLORS['w'] if c is None else COLORS[c]
-
+    def ecsprint(self, *args, log='d'):
         message = ' '.join(str(arg) for arg in args)
-        message = c + self.cli + message + COLORS['reset']
-        print(message)
-
+        message = self.cli + message
         if log == 'd':
-            self.log.debug(f'{self.cli}{message}')
+            self.log.debug(message)
         if log == 'i':
-            self.log.info(f'{self.cli}{message}')
+            self.log.info(message)
+        if log == 'e':
+            self.log.error(message)
 
     def init_log(self, log_level, log_file, directory):
-        # if directory is None or directory == '.':
-        #     # self.directory = f'ecs'
-
         if directory == '.':
             directory = os.getcwd()  # Use current path
         os.makedirs(directory, exist_ok=True)
         log_dir = os.path.join(directory, log_file)
-        if log_level == 'INFO' or log_level == 'ALL':
+        if log_level == 'INFO':
             logging.basicConfig(filename=log_dir,
                                 filemode='w',
-                                level=logging.INFO,
-                                format='%(asctime)s - %(levelname)s - %(message)s')
-        elif log_level == 'DEBUG':
+                                level=logging.DEBUG,
+                                format='%(asctime)s - INFO - %(message)s')
+        elif log_level == 'DEBUG' or log_level == 'FINEST' or log_level == 'ALL':
             logging.basicConfig(filename=log_dir,
                                 filemode='w',
                                 level=logging.DEBUG,
                                 format='%(asctime)s - %(levelname)s - %(message)s')
         self.log = logging.getLogger(__name__)
+        stream_handler = logging.StreamHandler()
+        self.log.addHandler(stream_handler)
 
     def server_bootstrap(self, num_kvservers):
         current_dir = os.path.abspath(os.path.dirname(__file__))
@@ -271,18 +247,14 @@ class ECS:
                                     'host': addr,
                                     'active': False}
             except Exception as e:
-                self.ecsprint(f'Error starting server {n}: {str(e)}')
-            # if result.returncode == 0:
-            #     self.ecsprint(f'The script ran successfully.')
-            # else:
-            #     self.ecsprint(f'The script encountered an error.')
+                self.ecsprint(f'Error starting server {n}: {str(e)}', log='e')
         self.ecsprint(f'Server bootstrap done. Number of server started: {len(self.kvs_data)}/{num_kvservers}')
 
 
 def main():
     parser = argparse.ArgumentParser(description='ECS Server')
     parser.add_argument('-l', '--log-file', default='ecs.log', help='Log file')
-    parser.add_argument('-ll', '--log-level', default='DEBUG', help='Log level:DEBUG or INFO')
+    parser.add_argument('-ll', '--log-level', default='DEBUG', type=str, help='Log level:DEBUG or INFO')
     parser.add_argument('-d', '--directory', default='.', type=str, help='Storage directory')
     parser.add_argument('-a', '--address', default='127.0.0.1', help='Server address')
     parser.add_argument('-p', '--port', default='5002', type=int, help='Server port')
@@ -292,7 +264,7 @@ def main():
 
     args = parser.parse_args()
     # args, unknown = parser.parse_known_args()
-
+    # print(f'Commands: {args}')
 
     ECS(log_level=args.log_level,
         log_file=args.log_file,

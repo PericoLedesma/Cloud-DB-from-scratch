@@ -1,14 +1,7 @@
-# import sys
-# import os
-# import json
-
-import time
-import shelve
-
 from cache_classes import *
+import shelve
 import socket
 import hashlib
-
 
 # ------------------------------------------------------------------------
 class Client_handler:
@@ -44,7 +37,7 @@ class Client_handler:
         self.lock = lock
         self.storage_dir = storage_dir
 
-        self.welcome_msg = f'Connection to KVServer established: /{self.client_fd.getsockname()[0]} / {self.client_fd.getsockname()[1]}'
+        self.welcome_msg = f'Hi client! Connection to {self.kv_data["name"]} established'
         self.cli = f'[Handler C{self.client_id}]>'
         self.print_cnfig = printer_config
 
@@ -52,13 +45,6 @@ class Client_handler:
         self.cache_init(cache_config)
         self.kvprint(f' Connected')
         self.handle_RESPONSE(self.welcome_msg)
-        # self.handle_CONN()
-
-
-    def closing_handler(self, clients_conn):
-        self.client_fd.close()
-        clients_conn[self.client_id] = 'Closed'
-        del self
 
 
     def handle_CONN(self):
@@ -68,7 +54,6 @@ class Client_handler:
                 if data:
                     request = data.replace(b'\\r\\n', b'\r\n')
                     messages = request.decode().split('\r\n')
-
                     for msg in messages:
                         if msg is None or msg == " " or not msg:
                             break
@@ -76,20 +61,20 @@ class Client_handler:
                             self.handle_RECV(msg)
                             self.heartbeat()
                 else:
-                    self.kvprint(f'No data --> Closing socket', c='r')
+                    self.kvprint(f'No data --> Closing socket', log='e')
                     break
             except socket.timeout:
-                self.kvprint(f'Time out client --> Closing socket', c='r')
+                self.kvprint(f'Time out client --> Closing socket', log='e')
                 break
             except Exception as e:
-                self.kvprint(f'Exception: {e} --> Closing socket', c='r')
+                self.kvprint(f'Exception: {e} --> Closing socket', log='e')
                 break
         self.clients_conn[self.client_id] = None
         self.client_fd.close()
+        del self
 
     def handle_RECV(self, msg):
         method, *args = msg.split()
-        self.cache.print_cache()
         if method in ['put', 'get', 'delete']:  # Some checks
             if self.ask_lock_write_value():
                 self.handle_RESPONSE('server_stopped')
@@ -97,7 +82,6 @@ class Client_handler:
                 key = args[0]
                 hash = self.hash(key)
                 if self.key_checker(hash) is False:
-                    self.kvprint(f'Not for this server')
                     self.handle_RESPONSE(f'server_not_responsible') # TODO delete args
                 else:
                     if self.write_lock is False:
@@ -108,12 +92,13 @@ class Client_handler:
                         elif method in ['get']:
                             self.handle_REQUEST(method, *args)
                         else:
-                            print('Error. Check this else1234')
+                            print('Error. Check this else1234', log='e')
         elif method in ['keyrange']:
             if self.ask_lock_write_value():
                 self.handle_RESPONSE('server_stopped')
-            self.handle_REQUEST(method, *args)
-        elif method in ['show', 'keyrange', 'close']:
+            else:
+                self.handle_REQUEST(method, *args)
+        elif method in ['show', 'close']:
             self.handle_REQUEST(method, *args)
         else:
             self.handle_RESPONSE('error unknown command!')
@@ -178,7 +163,7 @@ class Client_handler:
                     self.kvprint(f'{key}Data stored: key={key}, value={value}')
                     self.handle_RESPONSE(f'put_success {key}')
         except Exception as e:
-            self.kvprint(f'Exception in put request: {e} ', c='r')
+            self.kvprint(f'Exception in put request: {e} ', log='e')
             self.handle_RESPONSE('put_error')
 
     def GET_request(self, key):
@@ -194,7 +179,7 @@ class Client_handler:
                     self.kvprint(f'Key {key} not found')
                     self.handle_RESPONSE(f'get_error {key}')
         except Exception as e:
-            self.kvprint(f'Exception in get request: {e} ', c='r')
+            self.kvprint(f'Exception in get request: {e} ')
             self.handle_RESPONSE(f'get_error {key}')
 
     def DELETE_request(self, key):  # TODO
@@ -211,7 +196,7 @@ class Client_handler:
                     self.kvprint(f'Key {key} not found')
                     self.handle_RESPONSE(f'delete_error {key}')
         except Exception as e:
-            self.kvprint(f'Exception in delete request: {e} ', c='r')
+            self.kvprint(f'Exception in delete request: {e} ')
             self.handle_RESPONSE(f'delete_error {key}')
 
     def handle_RESPONSE(self, response):
@@ -220,32 +205,31 @@ class Client_handler:
 
     def key_checker(self, hash):
         if len(self.ask_ring_metadata()) == 1:
-            self.kvprint(f'key_checker: Just one server. Proceed')
-            return True
+            if self.ask_ring_metadata()[self.kv_data['hash_key']]:
+                return True
+            else:
+                raise Exception('Key checker Check this flow')
         elif len(self.ask_ring_metadata()) > 1:
             list_hash = list(self.ask_ring_metadata()).copy()
             sorted_hash_list = sorted(list_hash, key=lambda x: int(x, 16))
             if sorted_hash_list[0] == self.kv_data['hash_key']:  # If it is the last range
                 if sorted_hash_list[-1] < hash or sorted_hash_list[0] > hash:
-                    self.kvprint(f'key_checker: Last interval match')
+                    # self.kvprint(f'key_checker: Last interval match')
                     return True
                 else:
-                    self.kvprint(f'key_checker: KVserver in last interval, but key hash not')
+                    # self.kvprint(f'key_checker: KVserver in last interval, but key hash not')
                     return False
             else:
-                self.kvprint(
-                    f'key_checker: kvs_interval[{self.kv_data["previous_hash"]}|{hash}|{self.kv_data["hash_key"]}')
+                # self.kvprint(f'key_checker: kvs_interval[{self.kv_data["previous_hash"]}|{hash}|{self.kv_data["hash_key"]}')
                 if hash > self.kv_data['previous_hash'] and hash < self.kv_data['hash_key']:
-                    self.kvprint(f'True')
                     return True
                 else:
-                    self.kvprint(f'key_checker: False')
                     return False
         elif self.ask_ring_metadata() is None or self.ask_ring_metadata() == {}:
-            self.kvprint('Error in key_checker. ring_metadata EMPTY', c='r')
+            self.kvprint('Error in key_checker. ring_metadata EMPTY', log='e')
             return None
         else:
-            self.kvprint('Error in key_checker. Outside the logic. Check. ', c='r')
+            self.kvprint('Error in key_checker. Outside the logic. Check. ', log='e')
             return None
 
     def search_interval(self, hash):
@@ -278,7 +262,7 @@ class Client_handler:
         elif cache_type == 'LFU':
             self.cache = LFUCache(cache_cap)
         else:
-            self.kvprint(f'error cache selection')
+            self.kvprint(f'error cache selection', log='e')
 
     def print_storage(self):
         with shelve.open(self.storage_dir, flag='r') as db:
@@ -291,21 +275,12 @@ class Client_handler:
             message += f"------------------\n"
             return message
 
-    def kvprint(self, *args, c=None, log='d'):
-        COLORS = {
-            'r': '\033[91m',
-            'g': '\033[92m',
-            'y': '\033[93m',
-            'b': '\033[94m',
-            'reset': '\033[0m'
-        }
-        c = self.print_cnfig[1] if c is None else COLORS[c]
-
+    def kvprint(self, *args, log='d'):
         message = ' '.join(str(arg) for arg in args)
-        message = c + self.print_cnfig[0] + self.cli + message + COLORS['reset']
-        print(message)
-
+        message = self.print_cnfig[0] + self.cli + message
         if log == 'd':
-            self.print_cnfig[2].debug(f'{self.print_cnfig[0]}{self.cli}{message}')
+            self.print_cnfig[1].debug(message)
         if log == 'i':
-            self.print_cnfig[2].info(f'{self.print_cnfig[0]}|{self.cli}{message}')
+            self.print_cnfig[1].info(message)
+        if log == 'e':
+            self.print_cnfig[1].info(message)
