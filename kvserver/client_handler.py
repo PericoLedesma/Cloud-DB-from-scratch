@@ -12,6 +12,7 @@ class Client_handler:
                  cache_config,
                  lock,
                  ask_lock_write_value,
+                 ask_lock_ecs,
                  storage_dir,
                  printer_config,
                  timeout_config):
@@ -30,6 +31,7 @@ class Client_handler:
 
         self.ask_ring_metadata = ask_ring_metadata
         self.ask_lock_write_value = ask_lock_write_value
+        self.ask_lock_ecs = ask_lock_ecs
 
         self.conn_status = True
         self.lock = lock
@@ -89,6 +91,7 @@ class Client_handler:
                     self.handle_REQUEST(method, *args)
             elif self.ask_lock_write_value():
                 self.handle_RESPONSE('server_write_lock')
+                self.ask_lock_ecs()
         elif method in ['get']:
             if shutdown:
                 self.handle_REQUEST(method, *args)

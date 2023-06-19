@@ -6,13 +6,14 @@ docker build -t gitlab.lrz.de:5005/cdb-23/gr4/ms2/kv-server .
 docker push gitlab.lrz.de:5005/cdb-23/gr4/ms2/kv-server
 
 Option 1:
+python CLI_client.py -a 127.0.0.1 -p 37957
 python CLI_client.py -a 127.0.0.1 -p 37958
-python CLI_client.py -a 127.0.0.1 -p 37959
 python CLI_client.py -a 127.0.0.1 -p 37959
 
 python kvserver.py -i 0 -a 127.0.0.1 -p 37959 -ll INFO -d process_data -s FIFO -c 10 -b 127.0.0.1:40823
 python kvserver.py -i 1 -a 127.0.0.1 -p 37958 -ll INFO -d process_data -s FIFO -c 10 -b 127.0.0.1:40823
 python kvserver.py -i 2 -a 127.0.0.1 -p 37957 -ll INFO -d process_data -s FIFO -c 10 -b 127.0.0.1:40823
+
 python ecs.py -a 0.0.0.0 -p 40823 -ll FINEST
 
 Option 2:

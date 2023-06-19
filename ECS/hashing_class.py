@@ -93,18 +93,6 @@ class ConsistentHashing:
                     print('====== Removing node--> Sending reorganization')
                     handle_json_REPLY(sock=sock, request=f'arrange_ring', data=data)
                     break
-        # elif len(self.RING_metadata) == 1:
-        #     self.update_ring_intervals(ecsprint)
-        #     for
-        #     self.RING_metadata
-        #     data = {
-        #         'interval': [kvs_data[id]['previous_hash'], kvs_data[id]['hash_key']],
-        #         'responsable': f'{value["host"]}:{value["port"]}'
-        #     }
-        #     print('Removing node--> Sending reorganization')
-        #     handle_json_REPLY(sock=sock, request=f'arrange_ring', data=data)
-        #
-        #
         else:
             ecsprint(f'No other node to send the data')
             handle_json_REPLY(sock=sock, request=f'arrange_ring', data=None)

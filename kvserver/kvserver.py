@@ -17,8 +17,8 @@ class KVServer:
     def __init__(self, addr, port, ecs_addr, id, cache_strategy, cache_size, log_level, log_file, directory, max_conn):
         # Server parameters
         # self.id = id
+        self.id = addr[-1]
         self.id = str(port)[-1]
-        # self.id = addr[-1]
         self.name = f'KV{self.id}'
 
         # Time parameters
@@ -51,6 +51,9 @@ class KVServer:
         # Start processes
         self.init_log(log_level, log_file, directory)
         self.init_storage(directory)
+        self.kvprint(f'------------------------------------------------------------------')
+        self.kvprint(f'              KVSSERVER {self.id} Hosting in {self.addr}:{self.port}')
+        self.kvprint(f'------------------------------------------------------------------')
 
         # ECS handler thread starter
         self.ecs = ECS_handler(self.kv_data,
@@ -65,11 +68,10 @@ class KVServer:
 
         # Shutdown process
         # self.ecs.ON = False  # To stop the ECS handler thread
-        self.kvprint(f'----- Closing KVServer ------')
+        self.kvprint(f'-------------------- \n           Closing KVServer  {self.id}  \n --------------------')
         # exit(0)
 
     def RUN_kvserver(self):
-        self.kvprint(f'---- KVSSERVER {self.id} ACTIVE -----  Hosting in {self.addr}:{self.port}')
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server.settimeout(self.timeout)
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -83,17 +85,19 @@ class KVServer:
 
         except KeyboardInterrupt:
             # Todo if it is not connect or never connected
+            self.ecs.handle_json_REPLY('kvserver_shutdown')
+            print("\n --------------------------------")
             print("\n ----> Init backup process <----")
+            print("\n --------------------------------")
             self.ecs.write_lock = True
             self.ecs.shutdown = True
-            self.ecs.handle_json_REPLY('kvserver_shutdown')
+            if self.clients_conn:
+                for id, client_handler in self.clients_conn.items():
+                    if client_handler:
+                        thread = threading.Thread(target=client_handler.handle_CONN, args=(True,))
+                        thread.start()
 
-            for client_handler in self.clients_conn.values():
-                thread = threading.Thread(target=client_handler.handle_CONN, args=(True,))
-                thread.start()
 
-        # self.kvprint(f'---- KVSSERVER {self.id} SLEEP -----')
-        # server.close()
 
     def listen_to_connections(self, server):
         self.kvprint(f'Listening on {self.addr}:{self.port}')
@@ -136,6 +140,7 @@ class KVServer:
                                                       cache_config=[self.c_strg, self.c_size],
                                                       lock=self.lock,
                                                       ask_lock_write_value=self.ecs.ask_lock_write_value,
+                                                      ask_lock_ecs=self.ecs.ask_lock_ecs,
                                                       storage_dir=self.storage_dir,
                                                       printer_config=[self.cli, self.log],
                                                       timeout_config=[self.heartbeat, self.tictac, self.timeout])

@@ -8,7 +8,6 @@ import json
 import os
 import logging
 
-
 os.system('cls' if os.name == 'nt' else 'clear')
 
 
@@ -30,11 +29,17 @@ class ECS:
 
         # START
         self.init_log(log_level, log_file, directory)
-        self.ecsprint(f'--------- Active ECS server on port {host}:{port} ---------')
+        self.ecsprint(f'------------------------------------------------------------------')
+        self.ecsprint(f'                 ECS server on port {host}:{port}                 ')
+        self.ecsprint(f'------------------------------------------------------------------')
+
         # self.server_bootstrap(num_kvservers)
         self.hash_class = ConsistentHashing()
         self.listen_to_kvservers()
-        self.ecsprint(f'--------- Closing ECS --------')
+
+        self.ecsprint(f'------------------------------------------------------------------')
+        self.ecsprint(f'                         Closing ECS                              ')
+        self.ecsprint(f'------------------------------------------------------------------')
         exit(0)
 
     def listen_to_kvservers(self):
@@ -63,10 +68,10 @@ class ECS:
                                 self.handle_RECV(data, sock)
                                 self.heartbeat()
                             else:
-                                self.ecsprint(f'No data. Disconnected {self.kv_id(sock)} --> Closing socket', log='e')
+                                self.ecsprint(f'Socket => No data. Disconnected {self.kv_id(sock)} --> Closing socket', log='e')
                                 self.closing_kvserver(sock)
                         except Exception as e:
-                            self.ecsprint(f'Exception: {e} --> Closing socket', log='e')
+                            self.ecsprint(f'Exception Socket: {e} --> Closing socket', log='e')
                             self.closing_kvserver(sock)
                 if (time.time() - self.tictac) >= self.timeout:
                     self.ecsprint(f'Tic tac Time out. Stop listening', log='e')
@@ -114,6 +119,9 @@ class ECS:
                 self.broadcast('ring_metadata')
             elif request == 'heartbeat':
                 self.heartbeat()
+                self.broadcast('ring_metadata')
+            elif request == 'ring_metadata':
+                self.broadcast('ring_metadata')
             elif request == 'kvserver_shutdown':
                 data = parsedata.get('data', {}) #Todo is kvserver is not in the ring
                 if self.shutting_down is None or self.shutting_down == []:
@@ -210,17 +218,22 @@ class ECS:
 
 
     def closing_kvserver(self, sock): # Closing without backup process
+        print('Closing kvserver...')
+        print('\t Searching for id')
         self.broadcast('write_lock_act')
-        id = int(self.kv_id(sock)[-1])
-        try:
-            if self.kvs_data[id]['hash_key'] in self.hash_class.RING_metadata:
-                del self.hash_class.RING_metadata[self.kvs_data[id]['hash_key']]
-                self.hash_class.update_ring_intervals(self.kvs_data)
-                self.broadcast('ring_metadata')
-        except:
-            print('Not found kvserver in ring')
+        for id, values in self.kvs_data.items():
+            if values['sock'] == sock:
+                id = values['id']
+                break
+        print('\t If kvserver as node in ring, delete it and updating the ring')
+        if self.kvs_data[id]['hash_key'] in self.hash_class.RING_metadata:
+            del self.hash_class.RING_metadata[self.kvs_data[id]['hash_key']]
+            self.hash_class.update_ring_intervals(self.kvs_data)
+        else:
+            print('\tNot found as node in the ring. Closing socket')
         sock.close()
         del self.kvs_connected[sock]
+        self.broadcast('ring_metadata')
 
 
     def ecsprint(self, *args, log='d'):

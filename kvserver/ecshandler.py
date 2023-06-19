@@ -69,9 +69,8 @@ class ECS_handler:
                     self.ON = False
                     self.sock.close()
             except Exception as e:
-                self.kvprint(f'Exception handle_CONN: {e}')
-                # self.ON = False
-                # self.sock.close()
+                # self.kvprint(f'Exception handle_CONN: {e}')
+                continue
 
 
     def handle_RECV(self, data):
@@ -83,12 +82,15 @@ class ECS_handler:
                 try:
                     parsedata = json.loads(msg)
                     request = parsedata.get('request')
-                    if request != 'heartbeat':
-                        self.kvprint(f'Received message: {request}')
+
                     # REQUESTS
-                    if request == 'kvserver_data':
+                    if request == 'heartbeat':
+                        self.heartbeat(ecs=False)
+                        pass
+                    elif request == 'kvserver_data':
                         self.handle_json_REPLY(request)
                     elif request == 'ring_metadata':
+                        self.kvprint(f'Received message: {request}')
                         self.ring_metadata = parsedata.get('data', {})
                         self.list_kvs_addr = []
                         for key, values in self.ring_metadata.items():  # TODO delete when we just use str
@@ -106,12 +108,9 @@ class ECS_handler:
                         self.write_lock = True
                     elif request == 'write_lock_deact':
                         self.write_lock = False
-                    elif request == 'heartbeat':
-                        self.heartbeat(ecs=False)
-                        pass
                     elif request == 'arrange_ring':
+                        self.kvprint(f'Received message: {request}')
                         data = parsedata.get('data', {})
-                        self.kvprint(f'{request}| {data}')
                         if data is not None:
                             thread = threading.Thread(target=self.send_data_kvserver, args=(data,))
                             thread.start()
@@ -123,8 +122,8 @@ class ECS_handler:
                     self.kvprint(f'Error handling received: {str(e)} |MSG {msg}')
 
     def handle_REPLY(self, response):
-        self.kvprint(f'Sending normal msg: {response}')
         self.sock.sendall(bytes(f'{response}\r\n', encoding='utf-8'))
+        self.kvprint(f'Sending normal msg: {response}')
 
     def handle_json_REPLY(self, request):
         try:
@@ -148,6 +147,10 @@ class ECS_handler:
         elif request == 'heartbeat':
             return {
                 'request': 'heartbeat'
+            }
+        elif request == 'ring_metadata':
+            return {
+                'request': 'ring_metadata'
             }
         elif request == 'kvserver_shutdown':
             return {
@@ -181,9 +184,10 @@ class ECS_handler:
 
     def ask_ring_metadata(self): # For the client handler to get the ring
         return self.ring_metadata
-
     def ask_lock_write_value(self): # For the client too
         return self.write_lock
+    def ask_lock_ecs(self): # For the client too
+        self.handle_json_REPLY('ring_metadata')
 
     def send_data_kvserver(self, data):
         low_hash, up_hash = str(data['interval'][0]), str(data['interval'][1])
@@ -246,7 +250,7 @@ class ECS_handler:
                         if msg is None or msg == " " or not msg:
                             break
                         else:
-                            self.kvprint(f'Arranging data:Message ', msg )
+                            self.kvprint(f'Arranging data:Message ', msg)
                 else:
                     self.kvprint(f'Arranging data.No data. --> Closing socket')
                     break
@@ -263,10 +267,10 @@ class ECS_handler:
     def closing_all(self):
         self.kvprint(f'------- CLOSING ALL ------')
         self.kvprint(f'Closing clients handlers...')
-        for client_handler in self.clients_conn.values():
-            client_handler.conn_status = False
-
-        # self.kvprint(f'Closing ECS handler...')
-        # self.ON = False
-        # self.sock.close()
+        if self.clients_conn:
+            for client_handler in self.clients_conn.values():
+                client_handler.conn_status = False
+        time.sleep(2)
+        self.kvprint(f'Closing ECS handler...')
+        self.ON = False
 
