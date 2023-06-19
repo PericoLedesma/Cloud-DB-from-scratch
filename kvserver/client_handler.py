@@ -26,8 +26,6 @@ class Client_handler:
         self.tictac = timeout_config[1]
         self.timeout = timeout_config[2]
 
-        self.write_lock = False
-
         self.client_fd.settimeout(self.timeout)
 
         self.ask_ring_metadata = ask_ring_metadata
@@ -47,7 +45,7 @@ class Client_handler:
         self.handle_RESPONSE(self.welcome_msg)
 
 
-    def handle_CONN(self):
+    def handle_CONN(self, shutdown=False):
         while self.conn_status:
             try:
                 data = self.client_fd.recv(128 * 1024)
@@ -58,7 +56,11 @@ class Client_handler:
                         if msg is None or msg == " " or not msg:
                             break
                         else:
-                            self.handle_RECV(msg)
+                            print('Message recv: ', msg)
+                            if len(self.ask_ring_metadata()) > 0:
+                                self.handle_RECV(msg, shutdown)
+                            elif len(self.ask_ring_metadata()) == 0:
+                                self.handle_RESPONSE('server_stopped')
                             self.heartbeat()
                 else:
                     self.kvprint(f'No data --> Closing socket', log='e')
@@ -71,37 +73,40 @@ class Client_handler:
                 break
         self.clients_conn[self.client_id] = None
         self.client_fd.close()
+        self.kvprint(f'----- Closing handler ------')
         del self
 
-    def handle_RECV(self, msg):
+
+    def handle_RECV(self, msg, shutdown):
         method, *args = msg.split()
-        if method in ['put', 'get', 'delete']:  # Some checks
-            if self.ask_lock_write_value():
-                self.handle_RESPONSE('server_stopped')
-            else:
+        if method in ['put', 'delete'] and shutdown is False:  # Some checks
+            if self.ask_lock_write_value() is False:
                 key = args[0]
                 hash = self.hash(key)
                 if self.key_checker(hash) is False:
-                    self.handle_RESPONSE(f'server_not_responsible') # TODO delete args
+                    self.handle_RESPONSE(f'server_not_responsible') # TODO delete data
                 else:
-                    if self.write_lock is False:
-                        self.handle_REQUEST(method, *args)
-                    else:
-                        if method in ['put', 'delete']:
-                            self.handle_RESPONSE(f'server_write_lock')
-                        elif method in ['get']:
-                            self.handle_REQUEST(method, *args)
-                        else:
-                            print('Error. Check this else1234', log='e')
-        elif method in ['keyrange']:
-            if self.ask_lock_write_value():
-                self.handle_RESPONSE('server_stopped')
-            else:
+                    self.handle_REQUEST(method, *args)
+            elif self.ask_lock_write_value():
+                self.handle_RESPONSE('server_write_lock')
+        elif method in ['get']:
+            if shutdown:
                 self.handle_REQUEST(method, *args)
+            else:
+                hash = self.hash(args[0])
+                if self.key_checker(hash) is False:
+                    self.handle_RESPONSE(f'server_not_responsible') # TODO delete data
+                else:
+                    self.handle_REQUEST(method, *args)
+        elif method in ['keyrange']:
+            self.handle_REQUEST(method, *args)
         elif method in ['show', 'close']:
             self.handle_REQUEST(method, *args)
         else:
-            self.handle_RESPONSE('error unknown command!')
+            if method in ['put', 'delete'] and shutdown:
+                self.handle_RESPONSE('server_stopped')
+            else:
+                self.handle_RESPONSE('error unknown command!')
 
     def handle_REQUEST(self, request, *args):
         if request == 'put' and len(args) > 1:
@@ -127,8 +132,11 @@ class Client_handler:
         elif request == 'keyrange':
             self.kvprint(f'Request => keyrange')
             message = ''
+            print(f'------ Keyranges -----')
             for value in self.ask_ring_metadata().values():  # Posible problem por el orden
-                message = f'{message}{value[-1]},{value[-2]},{value[0]}:{value[1]};'
+                message = f'{message}{value[0]},{value[1]},{value[2]}:{value[3]};'
+                print(f'{value[0]},{value[1]},{value[2]}:{value[3]};')
+            print(f'------ Keyranges -----')
             self.handle_RESPONSE(message)
         elif request == 'close':
             self.kvprint(f'Request => close')
@@ -208,7 +216,7 @@ class Client_handler:
             if self.ask_ring_metadata()[self.kv_data['hash_key']]:
                 return True
             else:
-                raise Exception('Key checker Check this flow')
+                raise Exception('Key checker. Check this flow')
         elif len(self.ask_ring_metadata()) > 1:
             list_hash = list(self.ask_ring_metadata()).copy()
             sorted_hash_list = sorted(list_hash, key=lambda x: int(x, 16))
@@ -232,26 +240,11 @@ class Client_handler:
             self.kvprint('Error in key_checker. Outside the logic. Check. ', log='e')
             return None
 
-    def search_interval(self, hash):
-        list_hash = list(self.ask_ring_metadata()).copy()
-        sorted_hash_list = sorted(list_hash, key=lambda x: int(x, 16))
-
-        if sorted_hash_list[-1] < hash or sorted_hash_list[0] > hash:
-            self.kvprint(f'key_checker: Last interval match')
-            host = self.ask_ring_metadata()[sorted_hash_list[0]][0]
-            port = self.ask_ring_metadata()[sorted_hash_list[0]][1]
-            return f'{host}:{port}'
-        else:
-            for key, item in self.ask_ring_metadata().items():
-                if hash > item[-1] and hash < item[-2]:
-                    self.kvprint(f'Interval founded [{item[-1]}|{hash}|{item[-2]}')
-                    self.kvprint(f'Target kvserver:', item[0], ':', item[1])
-                    return f'{item[0]}:{item[1]}'
 
     def hash(self, key):
         md5_hash = hashlib.md5(key.encode()).hexdigest()
-        # md5_hash = int(md5_hash[:3], 16)
-        return md5_hash
+        #md5_hash = int(md5_hash[:3], 16)
+        return md5_hash[:1]
 
     def cache_init(self, cache_config):
         cache_type, cache_cap = cache_config[0], cache_config[1]
@@ -270,7 +263,7 @@ class Client_handler:
             message += f'All key-value pairs\n'
             counter = 1
             for key, value in db.items():
-                message += f"Item {counter}==> {key} | {value}\n"
+                message += f"Hash {self.hash(key)}==> {key} | {value}\n"
                 counter += 1
             message += f"------------------\n"
             return message

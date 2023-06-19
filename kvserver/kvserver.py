@@ -8,7 +8,8 @@ import threading
 import argparse
 import logging
 import select
-import random
+
+from server_handler import *
 
 os.system('cls' if os.name == 'nt' else 'clear')
 
@@ -16,12 +17,12 @@ os.system('cls' if os.name == 'nt' else 'clear')
 class KVServer:
     def __init__(self, addr, port, ecs_addr, id, cache_strategy, cache_size, log_level, log_file, directory, max_conn):
         # Server parameters
-        # self.id = id
-        self.id = addr[-1]
+        self.id = id
+        # self.id = addr[-1]
         self.name = f'kvserver{self.id}'
 
         # Time parameters
-        self.timeout = 15
+        self.timeout = 50
         self.tictac = time.time()
 
         # Server Socket parameters
@@ -46,7 +47,6 @@ class KVServer:
 
         # To store connections/sockets with clients
         self.clients_conn = {}
-        self.pool = []
 
         # Start processes
         self.init_log(log_level, log_file, directory)
@@ -54,7 +54,8 @@ class KVServer:
 
         # ECS handler thread starter
         self.ecs = ECS_handler(self.kv_data,
-                               self.pool,
+                               self.clients_conn,
+                               self.storage_dir,
                                [self.cli, self.log],
                                [self.heartbeat, self.tictac, self.timeout])
         ecs_thread = threading.Thread(target=self.ecs.connect_to_ECS, args=())
@@ -63,18 +64,17 @@ class KVServer:
         self.RUN_kvserver()
 
         # Shutdown process
-        self.ecs.ON = False  # To stop the ECS handler thread
-        self.kvprint(f'Closing KVServer. ')
-        exit(0)
+        # self.ecs.ON = False  # To stop the ECS handler thread
+        # self.kvprint(f'----- Closing KVServer ------')
+        # exit(0)
 
     def RUN_kvserver(self):
         self.kvprint(f'---- KVSSERVER {self.id} ACTIVE -----  Hosting in {self.addr}:{self.port}')
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server.settimeout(10)
+        server.settimeout(self.timeout)
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server.bind((self.addr, self.port))
         server.listen()
-        # self.pool.append(server)
         try:
             self.listen_to_connections(server)
         except Exception as e:
@@ -82,16 +82,16 @@ class KVServer:
         except KeyboardInterrupt:
             # Todo if it is not connect or never connected
             print("\n ----> Init backup process <----")
-            # clients_thread = {}
-            # for id, client_handler in self.clients_conn.items():
-            #     client_handler.write_lock = True
-            #     clients_thread[id] = threading.Thread(target=client_handler.handle_CONN())
-            #     clients_thread[id].start()
-
+            self.ecs.write_lock = True
+            self.ecs.shutdown = True
             self.ecs.handle_json_REPLY('kvserver_shutdown')
-            self.listen_to_connections(server)
-        self.kvprint(f'---- KVSSERVER {self.id} SLEEP -----')
-        server.close()
+
+            for client_handler in self.clients_conn.values():
+                thread = threading.Thread(target=client_handler.handle_CONN, args=(True,))
+                thread.start()
+
+        # self.kvprint(f'---- KVSSERVER {self.id} SLEEP -----')
+        # server.close()
 
     def listen_to_connections(self, server):
         self.kvprint(f'Listening on {self.addr}:{self.port}')
@@ -101,9 +101,23 @@ class KVServer:
             for sock in readable:
                 if sock is server:
                     conn, addr = sock.accept()
-                    self.kvprint(f'Client accepted: {addr}')
-                    self.init_client_handler(conn, addr)
-                    self.heartbeat()
+                    if addr in self.ecs.list_kvs_addr:
+                        print('Is a kvserver connected')
+                        kvs_handler = Server_handler(kv_data= self.kv_data,
+                                                     kvs_socket=[conn, addr],
+                                                     ask_ring_metadata=self.ecs.ask_ring_metadata,
+                                                     ask_lock_write_value=self.ecs.ask_lock_write_value,
+                                                     lock=self.lock,
+                                                     storage_dir=self.storage_dir,
+                                                     printer_config=[self.cli, self.log],
+                                                     timeout_config=[self.heartbeat, self.tictac, self.timeout])
+                        client_thread = threading.Thread(target=kvs_handler.handle_CONN())
+                        client_thread.start()
+
+                    else:
+                        self.kvprint(f'Client accepted: {addr}')
+                        self.init_client_handler(conn, addr)
+                        self.heartbeat()
                 else:
                     self.kvprint(f'OUTSIDE, SOCKET NOT FOLLOW. CHECK. Socket out of list', log='e')
             if not self.check_active_clients() and (time.time() - self.tictac) >= self.timeout:
@@ -121,7 +135,7 @@ class KVServer:
                 self.kvprint(f'Exception in sending heartbeat to ecs: {e}', log='e')
 
     def init_client_handler(self, conn, addr):
-        client_id = 0 # Todo we are using new id for each new client
+        client_id = 0  # Todo we are using new id for each new client
         while True:
             if client_id in self.clients_conn:
                 client_id += 1
@@ -149,8 +163,6 @@ class KVServer:
                 continue
             else:
                 active_ids.append(value.client_id)
-        if self.ecs.sock in self.pool:
-            ECS += 1
         self.kvprint(f'Waiting... Active clients: {count}, Ids: {active_ids}.| ECS: {ECS}')
         return count
 
@@ -215,7 +227,7 @@ def main():
     # parser.add_argument("-h", "--help", required=True, help="Help")
 
     args = parser.parse_args()
-    # print(f'Commands:  {args}')
+    # print(f'Commands:  {data}')
 
     KVServer(addr=args.address,
              port=args.port,

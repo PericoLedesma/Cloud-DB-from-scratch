@@ -1,0 +1,47 @@
+2023-06-19 12:31:10,769 - INFO - [kvserver1]>[ECS handler]>Connecting to ECS 127.0.0.1:40823....
+2023-06-19 12:31:10,769 - INFO - [kvserver1]>---- KVSSERVER 1 ACTIVE -----  Hosting in 127.0.0.1:37958
+2023-06-19 12:31:10,769 - INFO - [kvserver1]>Listening on 127.0.0.1:37958
+2023-06-19 12:31:10,769 - INFO - [kvserver1]>[ECS handler]>Connected to ECS[127.0.0.1:40823]. Connection addr: 127.0.0.1:50974
+2023-06-19 12:31:10,769 - INFO - [kvserver1]>[ECS handler]>Response sent:kvserver_data
+2023-06-19 12:31:10,770 - INFO - [kvserver1]>[ECS handler]>Response sent:heartbeat
+2023-06-19 12:31:10,770 - INFO - [kvserver1]>[ECS handler]>Received message: write_lock_act
+2023-06-19 12:31:10,771 - INFO - [kvserver1]>[ECS handler]>Received message: ring_metadata
+2023-06-19 12:31:10,771 - INFO - [kvserver1]>[ECS handler]>UPDATED RING. Number of kv_servers: 2
+2023-06-19 12:31:10,772 - INFO - [kvserver1]>Client accepted: ('127.0.0.1', 50975)
+2023-06-19 12:31:10,772 - INFO - [kvserver1]>[Handler C0]> Connected
+2023-06-19 12:31:10,772 - INFO - [kvserver1]>[Handler C0]>Reply sent:Hi client! Connection to kvserver1 established
+2023-06-19 12:31:10,772 - INFO - [kvserver1]>[Handler C0]>Exception: [Errno 54] Connection reset by peer --> Closing socket
+2023-06-19 12:31:10,772 - INFO - [kvserver1]>[Handler C0]>----- Closing handler ------
+2023-06-19 12:31:10,773 - INFO - [kvserver1]>[ECS handler]>Response sent:heartbeat
+2023-06-19 12:31:10,773 - INFO - [kvserver1]>Waiting... Active clients: 0, Ids: [].| ECS: 0
+2023-06-19 12:31:10,773 - INFO - [kvserver1]>Client accepted: ('127.0.0.1', 50976)
+2023-06-19 12:31:10,773 - INFO - [kvserver1]>[Handler C1]> Connected
+2023-06-19 12:31:10,773 - INFO - [kvserver1]>[Handler C1]>Reply sent:Hi client! Connection to kvserver1 established
+2023-06-19 12:31:10,774 - INFO - [kvserver1]>[Handler C1]>Reply sent:error unknown command!
+2023-06-19 12:31:10,774 - INFO - [kvserver1]>[ECS handler]>Response sent:heartbeat
+2023-06-19 12:31:10,775 - INFO - [kvserver1]>[Handler C1]>Request => put 9 9
+2023-06-19 12:31:10,776 - INFO - [kvserver1]>[Handler C1]>9 |9 already exists with same values
+2023-06-19 12:31:10,776 - INFO - [kvserver1]>[Handler C1]>Reply sent:put_update 9
+2023-06-19 12:31:10,776 - INFO - [kvserver1]>[ECS handler]>Response sent:heartbeat
+2023-06-19 12:31:20,777 - INFO - [kvserver1]>[Handler C1]>No data --> Closing socket
+2023-06-19 12:31:20,777 - INFO - [kvserver1]>[Handler C1]>----- Closing handler ------
+2023-06-19 12:31:20,777 - INFO - [kvserver1]>[ECS handler]>Exception handle_CONN: timed out
+2023-06-19 12:31:20,778 - INFO - [kvserver1]>[ECS handler]>Response sent:heartbeat
+2023-06-19 12:31:20,778 - INFO - [kvserver1]>Waiting... Active clients: 0, Ids: [].| ECS: 0
+2023-06-19 12:31:30,779 - INFO - [kvserver1]>[ECS handler]>Exception handle_CONN: timed out
+2023-06-19 12:31:30,783 - INFO - [kvserver1]>Waiting... Active clients: 0, Ids: [].| ECS: 0
+2023-06-19 12:31:40,780 - INFO - [kvserver1]>[ECS handler]>Exception handle_CONN: timed out
+2023-06-19 12:31:40,787 - INFO - [kvserver1]>Waiting... Active clients: 0, Ids: [].| ECS: 0
+19 12:31:10,772 - INFO - [kvserver0]>[ECS handler]>Connected to KVserver [127.0.0.1:37958].
+2023-06-19 12:31:10,772 - INFO - [kvserver0]>[ECS handler]>Finishing connecting... Waiting to lock deacti
+2023-06-19 12:31:10,772 - INFO - [kvserver0]>[ECS handler]>Starting sending data 
+2023-06-19 12:31:10,773 - INFO - [kvserver0]>[ECS handler]>Sended (hash 4 - put 9 9
+2023-06-19 12:31:10,773 - INFO - [kvserver0]>[ECS handler]>Finishing sending data
+2023-06-19 12:31:10,774 - INFO - [kvserver0]>[ECS handler]>Arranging data:Message  Hi client! Connection to kvserver1 established
+2023-06-19 12:31:10,775 - INFO - [kvserver0]>[ECS handler]>Arranging data:Message  error unknown command!
+2023-06-19 12:31:10,776 - INFO - [kvserver0]>[ECS handler]>Arranging data:Message  put_update 9
+2023-06-19 12:31:20,776 - INFO - [kvserver0]>[ECS handler]>Exception handle_CONN: timed out
+2023-06-19 12:31:20,776 - INFO - [kvserver0]>[ECS handler]>Successfully rearrange data. Closing clients sockets..
+2023-06-19 12:31:20,777 - INFO - [kvserver0]>[ECS handler]>Exception handle_CONN: timed out
+2023-06-19 12:31:30,779 - INFO - [kvserver0]>[ECS handler]>Exception handle_CONN: timed out
+2023-06-19 12:31:40,780 - INFO - [kvserver0]>[ECS handler]>Exception handle_CONN: timed out

@@ -1,0 +1,80 @@
+2023-06-19 12:30:47,003 - DEBUG - [ECS]>--------- Active ECS server on port 0.0.0.0:40823 ---------
+2023-06-19 12:30:47,003 - DEBUG - [ECS]>Listening on 0.0.0.0:40823
+2023-06-19 12:30:47,076 - DEBUG - [ECS]>New kvserver connected: ('127.0.0.1', 50959)
+2023-06-19 12:30:47,076 - DEBUG - [ECS]>Message sent: heartbeat
+2023-06-19 12:30:47,076 - DEBUG - [ECS]>Waiting... Active kvservers: [1]
+2023-06-19 12:30:47,076 - DEBUG - [ECS]>Received message from None: kvserver_data
+2023-06-19 12:30:47,076 - DEBUG - [ECS]>New kvserver0!, Current ids:[]
+2023-06-19 12:30:47,076 - DEBUG - [ECS]>Message sent: write_lock_act
+2023-06-19 12:30:47,076 - DEBUG - [ECS]>Waiting all kvserver connected to be added to ring...
+2023-06-19 12:30:47,076 - DEBUG - [ECS]>Adding new node
+2023-06-19 12:30:47,076 - DEBUG - [ECS]>Updating the ring
+2023-06-19 12:30:47,076 - DEBUG - [ECS]>Error. Node not added. Check
+2023-06-19 12:30:47,076 - DEBUG - [ECS]>Added. Connected=1|Ring nodes:1
+2023-06-19 12:30:47,076 - DEBUG - [ECS]>Message sent: ring_metadata
+2023-06-19 12:30:47,077 - DEBUG - [ECS]>Message sent: heartbeat
+2023-06-19 12:30:47,077 - DEBUG - [ECS]>Waiting... Active kvservers: [1]
+2023-06-19 12:30:47,077 - DEBUG - [ECS]>Received message from kvserver0: heartbeat
+2023-06-19 12:30:47,077 - DEBUG - [ECS]>Message sent: heartbeat
+2023-06-19 12:30:47,077 - DEBUG - [ECS]>Message sent: heartbeat
+2023-06-19 12:30:47,077 - DEBUG - [ECS]>Waiting... Active kvservers: [1]
+2023-06-19 12:30:57,082 - DEBUG - [ECS]>Waiting... Active kvservers: [1]
+2023-06-19 12:31:02,363 - DEBUG - [ECS]>Received message from kvserver0: heartbeat
+2023-06-19 12:31:02,363 - DEBUG - [ECS]>Message sent: heartbeat
+2023-06-19 12:31:02,363 - DEBUG - [ECS]>Message sent: heartbeat
+2023-06-19 12:31:02,363 - DEBUG - [ECS]>Waiting... Active kvservers: [1]
+2023-06-19 12:31:04,735 - DEBUG - [ECS]>Received message from kvserver0: heartbeat
+2023-06-19 12:31:04,736 - DEBUG - [ECS]>Message sent: heartbeat
+2023-06-19 12:31:04,736 - DEBUG - [ECS]>Message sent: heartbeat
+2023-06-19 12:31:04,736 - DEBUG - [ECS]>Waiting... Active kvservers: [1]
+2023-06-19 12:31:08,089 - DEBUG - [ECS]>Received message from kvserver0: heartbeat
+2023-06-19 12:31:08,089 - DEBUG - [ECS]>Message sent: heartbeat
+2023-06-19 12:31:08,089 - DEBUG - [ECS]>Message sent: heartbeat
+2023-06-19 12:31:08,089 - DEBUG - [ECS]>Waiting... Active kvservers: [1]
+2023-06-19 12:31:10,769 - DEBUG - [ECS]>New kvserver connected: ('127.0.0.1', 50974)
+2023-06-19 12:31:10,770 - DEBUG - [ECS]>Message sent: heartbeat
+2023-06-19 12:31:10,770 - DEBUG - [ECS]>Message sent: heartbeat
+2023-06-19 12:31:10,770 - DEBUG - [ECS]>Waiting... Active kvservers: [2]
+2023-06-19 12:31:10,770 - DEBUG - [ECS]>Received message from None: kvserver_data
+2023-06-19 12:31:10,770 - DEBUG - [ECS]>New kvserver1!, Current ids:[0]
+2023-06-19 12:31:10,770 - DEBUG - [ECS]>Message sent: write_lock_act
+2023-06-19 12:31:10,770 - DEBUG - [ECS]>Message sent: write_lock_act
+2023-06-19 12:31:10,770 - DEBUG - [ECS]>Waiting all kvserver connected to be added to ring...
+2023-06-19 12:31:10,770 - DEBUG - [ECS]>Adding new node
+2023-06-19 12:31:10,771 - DEBUG - [ECS]>Updating the ring
+2023-06-19 12:31:10,771 - DEBUG - [ECS]>Message sent: arrange_ring
+2023-06-19 12:31:10,771 - DEBUG - [ECS]>Added. Connected=2|Ring nodes:2
+2023-06-19 12:31:10,771 - DEBUG - [ECS]>Message sent: ring_metadata
+2023-06-19 12:31:10,771 - DEBUG - [ECS]>Message sent: ring_metadata
+2023-06-19 12:31:10,771 - DEBUG - [ECS]>Received message from kvserver1: heartbeat
+2023-06-19 12:31:10,771 - DEBUG - [ECS]>Message sent: heartbeat
+2023-06-19 12:31:10,771 - DEBUG - [ECS]>Message sent: heartbeat
+2023-06-19 12:31:10,772 - DEBUG - [ECS]>Message sent: heartbeat
+2023-06-19 12:31:10,772 - DEBUG - [ECS]>Message sent: heartbeat
+2023-06-19 12:31:10,772 - DEBUG - [ECS]>Waiting... Active kvservers: [2]
+2023-06-19 12:31:10,773 - DEBUG - [ECS]>Received message from kvserver1: heartbeat
+2023-06-19 12:31:10,773 - DEBUG - [ECS]>Message sent: heartbeat
+2023-06-19 12:31:10,773 - DEBUG - [ECS]>Message sent: heartbeat
+2023-06-19 12:31:10,773 - DEBUG - [ECS]>Message sent: heartbeat
+2023-06-19 12:31:10,774 - DEBUG - [ECS]>Message sent: heartbeat
+2023-06-19 12:31:10,774 - DEBUG - [ECS]>Waiting... Active kvservers: [2]
+2023-06-19 12:31:10,775 - DEBUG - [ECS]>Received message from kvserver1: heartbeat
+2023-06-19 12:31:10,775 - DEBUG - [ECS]>Message sent: heartbeat
+2023-06-19 12:31:10,775 - DEBUG - [ECS]>Message sent: heartbeat
+2023-06-19 12:31:10,775 - DEBUG - [ECS]>Message sent: heartbeat
+2023-06-19 12:31:10,775 - DEBUG - [ECS]>Message sent: heartbeat
+2023-06-19 12:31:10,775 - DEBUG - [ECS]>Waiting... Active kvservers: [2]
+2023-06-19 12:31:10,776 - DEBUG - [ECS]>Received message from kvserver1: heartbeat
+2023-06-19 12:31:10,776 - DEBUG - [ECS]>Message sent: heartbeat
+2023-06-19 12:31:10,776 - DEBUG - [ECS]>Message sent: heartbeat
+2023-06-19 12:31:10,777 - DEBUG - [ECS]>Message sent: heartbeat
+2023-06-19 12:31:10,777 - DEBUG - [ECS]>Message sent: heartbeat
+2023-06-19 12:31:10,777 - DEBUG - [ECS]>Waiting... Active kvservers: [2]
+2023-06-19 12:31:20,778 - DEBUG - [ECS]>Received message from kvserver1: heartbeat
+2023-06-19 12:31:20,778 - DEBUG - [ECS]>Message sent: heartbeat
+2023-06-19 12:31:20,778 - DEBUG - [ECS]>Message sent: heartbeat
+2023-06-19 12:31:20,778 - DEBUG - [ECS]>Message sent: heartbeat
+2023-06-19 12:31:20,778 - DEBUG - [ECS]>Message sent: heartbeat
+2023-06-19 12:31:20,779 - DEBUG - [ECS]>Waiting... Active kvservers: [2]
+2023-06-19 12:31:30,783 - DEBUG - [ECS]>Waiting... Active kvservers: [2]
+2023-06-19 12:31:40,787 - DEBUG - [ECS]>Waiting... Active kvservers: [2]

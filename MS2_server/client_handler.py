@@ -15,7 +15,7 @@ class Client_handler:
         self.client_fd.settimeout(10)
         self.log = logger
         self.lock = lock
-        # self.welcome_msg = f'Connection to KVServer established: /{self.client_fd.getsockname()[0]} / {self.client_fd.getsockname()[1]}'
+        # self.welcome_msg = f'Connection to KVServer established: /{self.kvs_fd.getsockname()[0]} / {self.kvs_fd.getsockname()[1]}'
         self.welcome_msg = f'hello pedro: /{self.client_fd.getsockname()[0]} / {self.client_fd.getsockname()[1]}'
 
         clients_conn[client_id] = self
@@ -56,8 +56,8 @@ class Client_handler:
 
     def handle_request(self, msg):
         method, *args = msg.split()
-        # print('method', method)
-        # print(len(args))
+        # print('request', request)
+        # print(len(data))
 
         if method == 'put' and len(args) > 1:
             key, value = args[0], ' '.join(args[1:])

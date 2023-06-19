@@ -59,9 +59,9 @@ if not message:
 # response2 = b'get_error apple123@# \r\n ppl'
 #
 #
-# request, *args = response2.decode().split('\r\n')
+# request, *data = response2.decode().split('\r\n')
 # print(request)
-# print(args)
+# print(data)
 #
 # print('-----')
 # print(repr(response2))
@@ -77,11 +77,11 @@ if not message:
 # parser.add_argument('-n', '--number', type=int, help='Number argument')
 #
 # # Parse the command-line arguments
-# args = parser.parse_args()
+# data = parser.parse_args()
 #
 # # Access the parsed arguments
-# file_path = args.file
-# number = args.number
+# file_path = data.file
+# number = data.number
 #
 # # Perform the task based on the provided arguments
 # if file_path:
