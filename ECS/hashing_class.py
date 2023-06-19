@@ -8,7 +8,7 @@ class ConsistentHashing:
         md5_hash = hashlib.md5(key.encode()).hexdigest()
         # md5_hash = int(md5_hash[:3], 16)
         if len(md5_hash) == 32:
-            return md5_hash[:1] # For testing, just take one byte. Easier to check
+            return md5_hash # For testing, just take one byte. Easier to check
         else:
             raise Exception('Error in hash. Not getting all the character. Error when sorting probably')
 
@@ -30,17 +30,17 @@ class ConsistentHashing:
         new_hash = self.hash(f'{kvs_data[id]["host"]}:{kvs_data[id]["port"]}')
         kvs_data[id]['hash_key'] = new_hash
 
-        old_ring = {}
-        for key, value in self.RING_metadata.items():
-            old_ring[key] = [value[0], value[1]]
+        if len(self.RING_metadata) > 0:
+            old_ring = {}
+            for key, value in self.RING_metadata.items():
+                old_ring[key] = [value[0], value[1]]
 
-        self.RING_metadata[new_hash] = [None, new_hash, kvs_data[id]["host"], kvs_data[id]["port"]]
-        self.update_ring_intervals(ecsprint)
+            self.RING_metadata[new_hash] = [None, new_hash, kvs_data[id]["host"], kvs_data[id]["port"]]
+            self.update_ring_intervals(ecsprint)
 
-        for data in kvs_data.values():
-            data['previous_hash'] = self.RING_metadata[data['hash_key']][0]
+            for data in kvs_data.values():
+                data['previous_hash'] = self.RING_metadata[data['hash_key']][0]
 
-        if len(self.RING_metadata) > 1:
             old_hashes = list(old_ring.keys())
             next_hash = min(old_hashes)
             old_hashes.sort()
@@ -56,6 +56,12 @@ class ConsistentHashing:
                     }
                     handle_json_REPLY(sock=value['sock'], request=f'arrange_ring', data=data)
                     break
+
+        elif len(self.RING_metadata) == 0:
+            self.RING_metadata[new_hash] = [None, new_hash, kvs_data[id]["host"], kvs_data[id]["port"]]
+            self.update_ring_intervals(ecsprint)
+            for data in kvs_data.values():
+                data['previous_hash'] = self.RING_metadata[data['hash_key']][0]
         else:
             ecsprint('Error. Node not added. Check')
 
@@ -66,7 +72,7 @@ class ConsistentHashing:
             old_ring[key] = [value[0], value[1]]
         del self.RING_metadata[kvs_data[id]['hash_key']]
 
-        if len(self.RING_metadata) != 0:
+        if len(self.RING_metadata) > 0:
             self.update_ring_intervals(ecsprint)
 
             new_hash = list(self.RING_metadata)
@@ -77,18 +83,31 @@ class ConsistentHashing:
                 if hash > kvs_data[id]['hash_key']:
                     next_bigger = hash
                     break
+
             for key, value in kvs_data.items():
                 if value['hash_key'] == next_bigger:
                     data = {
                         'interval': [kvs_data[id]['previous_hash'], kvs_data[id]['hash_key']],
                         'responsable': f'{value["host"]}:{value["port"]}'
                     }
+                    print('====== Removing node--> Sending reorganization')
                     handle_json_REPLY(sock=sock, request=f'arrange_ring', data=data)
                     break
+        # elif len(self.RING_metadata) == 1:
+        #     self.update_ring_intervals(ecsprint)
+        #     for
+        #     self.RING_metadata
+        #     data = {
+        #         'interval': [kvs_data[id]['previous_hash'], kvs_data[id]['hash_key']],
+        #         'responsable': f'{value["host"]}:{value["port"]}'
+        #     }
+        #     print('Removing node--> Sending reorganization')
+        #     handle_json_REPLY(sock=sock, request=f'arrange_ring', data=data)
+        #
+        #
         else:
             ecsprint(f'No other node to send the data')
-            data = None
-            handle_json_REPLY(sock=sock, request=f'arrange_ring', data=data)
+            handle_json_REPLY(sock=sock, request=f'arrange_ring', data=None)
 
 
 

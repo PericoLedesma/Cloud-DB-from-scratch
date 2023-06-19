@@ -35,7 +35,7 @@ class Client_handler:
         self.lock = lock
         self.storage_dir = storage_dir
 
-        self.welcome_msg = f'Hi client! Connection to {self.kv_data["name"]} established'
+        self.welcome_msg = f'Hi! Connection to {self.kv_data["name"]} established'
         self.cli = f'[Handler C{self.client_id}]>'
         self.print_cnfig = printer_config
 
@@ -244,7 +244,7 @@ class Client_handler:
     def hash(self, key):
         md5_hash = hashlib.md5(key.encode()).hexdigest()
         #md5_hash = int(md5_hash[:3], 16)
-        return md5_hash[:1]
+        return md5_hash
 
     def cache_init(self, cache_config):
         cache_type, cache_cap = cache_config[0], cache_config[1]
@@ -270,7 +270,8 @@ class Client_handler:
 
     def kvprint(self, *args, log='d'):
         message = ' '.join(str(arg) for arg in args)
-        message = self.print_cnfig[0] + self.cli + message
+        message = self.cli + message
+        # message = self.print_cnfig[0] + self.cli + message
         if log == 'd':
             self.print_cnfig[1].debug(message)
         if log == 'i':
