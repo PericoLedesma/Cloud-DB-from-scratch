@@ -22,6 +22,15 @@ class ConsistentHashing:
             for key, values in self.RING_metadata.items():
                 values[0] = previous_hash
                 previous_hash = key
+
+        elif len(self.RING_metadata) > 2:
+            print('REPLICA ACTIVATED')
+            self.RING_metadata = {k: self.RING_metadata[k] for k in sorted(self.RING_metadata)}
+            # sorted_hash_list = sorted(list_hash, key=lambda x: int(x, 16)) # Todo use it
+            previous_hash = list(self.RING_metadata.keys())
+            for key, values in self.RING_metadata.items():
+                values[0] = previous_hash
+                previous_hash = key
         else:
             ecsprint(f'No nodes. Ring not updated.')
 
@@ -35,7 +44,7 @@ class ConsistentHashing:
             for key, value in self.RING_metadata.items():
                 old_ring[key] = [value[0], value[1]]
 
-            self.RING_metadata[new_hash] = [None, new_hash, kvs_data[id]["host"], kvs_data[id]["port"]]
+            self.RING_metadata[new_hash] = [None, new_hash, kvs_data[id]["host"], kvs_data[id]["port"], None, None]
             self.update_ring_intervals(ecsprint)
 
             for data in kvs_data.values():

@@ -29,6 +29,7 @@ class Client_handler:
 
         self.client_fd.settimeout(self.timeout)
 
+        # Some function to ask for data. todo rethink
         self.ask_ring_metadata = ask_ring_metadata
         self.ask_lock_write_value = ask_lock_write_value
         self.ask_lock_ecs = ask_lock_ecs
@@ -58,8 +59,8 @@ class Client_handler:
                         if msg is None or msg == " " or not msg:
                             break
                         else:
-                            print('Message recv: ', msg)
-                            if len(self.ask_ring_metadata()) > 0:
+                            self.kvprint(f'Message recv: {msg}')
+                            if len(self.ask_ring_metadata()) > 0: # TODO rethink the start
                                 self.handle_RECV(msg, shutdown)
                             elif len(self.ask_ring_metadata()) == 0:
                                 self.handle_RESPONSE('server_stopped')
@@ -75,7 +76,7 @@ class Client_handler:
                 break
         self.clients_conn[self.client_id] = None
         self.client_fd.close()
-        self.kvprint(f'----- Closing handler ------')
+        self.kvprint(f'\n---------------------- \nClosing Client handler  {self.client_id}  \n----------------------')
         del self
 
 
@@ -120,10 +121,10 @@ class Client_handler:
         elif request == 'get' and len(args) == 1:
             key = args[0]
             if self.cache.get(key):
-                self.kvprint(f' {key} at CACHE')
+                # self.kvprint(f' {key} at CACHE')
                 self.handle_RESPONSE(f'get_success {key} {self.cache.get(key)}')
             else:
-                self.kvprint(f'{key} not in cache. Checking STORAGE')
+                # self.kvprint(f'{key} not in cache. Checking STORAGE')
                 self.GET_request(key)
         elif request == 'delete' and len(args) == 1:
             key = args[0]
@@ -163,15 +164,15 @@ class Client_handler:
             with shelve.open(self.storage_dir, writeback=True) as db:
                 if key in db:
                     if db.get(key) == value:
-                        self.kvprint(f'{key} |{value} already exists with same values')
+                        # self.kvprint(f'{key} |{value} already exists with same values')
                         self.handle_RESPONSE(f'put_update {key}')  # Todo creo que esta respuesta me la he inventado
                     else:
-                        self.kvprint(f' Key>{key} already exists. Overwriting value.')
+                        # self.kvprint(f' Key>{key} already exists. Overwriting value.')
                         db[key] = value
                         self.handle_RESPONSE(f'put_update {key}')
                 else:
                     db[key] = value
-                    self.kvprint(f'{key}Data stored: key={key}, value={value}')
+                    # self.kvprint(f'{key}Data stored: key={key}, value={value}')
                     self.handle_RESPONSE(f'put_success {key}')
         except Exception as e:
             self.kvprint(f'Exception in put request: {e} ', log='e')
@@ -183,14 +184,14 @@ class Client_handler:
             with shelve.open(self.storage_dir, flag='r') as db:
                 value = db.get(key)
                 if value is not None:
-                    self.kvprint(f'Key {key} found. Value {value}')
+                    # self.kvprint(f'Key {key} found. Value {value}')
                     self.handle_RESPONSE(f'get_success {key} {value}')
                     self.cache.put(key, value)
                 else:
-                    self.kvprint(f'Key {key} not found')
+                    # self.kvprint(f'Key {key} not found')
                     self.handle_RESPONSE(f'get_error {key}')
         except Exception as e:
-            self.kvprint(f'Exception in get request: {e} ')
+            # self.kvprint(f'Exception in get request: {e} ')
             self.handle_RESPONSE(f'get_error {key}')
 
     def DELETE_request(self, key):  # TODO
@@ -204,7 +205,7 @@ class Client_handler:
                     del db[key]
                     self.handle_RESPONSE(f'delete_success {key} {value}')
                 else:
-                    self.kvprint(f'Key {key} not found')
+                    # self.kvprint(f'Key {key} not found')
                     self.handle_RESPONSE(f'delete_error {key}')
         except Exception as e:
             self.kvprint(f'Exception in delete request: {e} ')

@@ -22,7 +22,7 @@ class KVServer:
         self.name = f'KV{self.id}'
 
         # Time parameters
-        self.timeout = 20
+        self.timeout = 30
         self.tictac = time.time()
 
         # Server Socket parameters
@@ -60,16 +60,11 @@ class KVServer:
                                self.clients_conn,
                                self.storage_dir,
                                [self.cli, self.log],
-                               [self.heartbeat, self.tictac, self.timeout])
+                               [self.heartbeat, self.timeout])
         ecs_thread = threading.Thread(target=self.ecs.connect_to_ECS, args=())
         ecs_thread.start()
-
         self.RUN_kvserver()
 
-        # Shutdown process
-        # self.ecs.ON = False  # To stop the ECS handler thread
-        self.kvprint(f'-------------------- \n           Closing KVServer  {self.id}  \n --------------------')
-        # exit(0)
 
     def RUN_kvserver(self):
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -82,6 +77,7 @@ class KVServer:
         except Exception as e:
             self.kvprint(f'Exception: {e} --> Closing kvserver', log='e')
             self.ecs.closing_all()
+
 
         except KeyboardInterrupt:
             # Todo if it is not connect or never connected
@@ -97,26 +93,32 @@ class KVServer:
                         thread = threading.Thread(target=client_handler.handle_CONN, args=(True,))
                         thread.start()
 
-
+        server.close()
+        self.kvprint(f'\n---------------------- \nClosing KVServer  {self.id}  \n----------------------')
 
     def listen_to_connections(self, server):
         self.kvprint(f'Listening on {self.addr}:{self.port}')
         self.heartbeat(ecs=False)
-        while True:
-            readable, _, _ = select.select([server], [], [], 10)
-            for sock in readable:
-                if sock is server:
-                    conn, addr = sock.accept()
-                    self.kvprint(f'Client accepted: {addr}')
-                    self.init_client_handler(conn, addr)
-                    self.heartbeat()
-                else:
-                    self.kvprint(f'OUTSIDE, SOCKET NOT FOLLOW. CHECK. Socket out of list', log='e')
-            if not self.check_active_clients() and (time.time() - self.tictac) >= self.timeout:
-                self.kvprint(f'Time out and no clients. Closing kvserver')
-                # TODO send shutdown mesage to ECS
-                break
-        server.close()
+        while self.ecs.ON:
+            try:
+                readable, _, _ = select.select([server], [], [], 10)
+                for sock in readable:
+                    if sock is server:
+                        conn, addr = sock.accept()
+                        self.kvprint(f'Client accepted: {addr}')
+                        self.init_client_handler(conn, addr)
+                        self.heartbeat()
+                    else:
+                        self.kvprint(f'OUTSIDE, SOCKET NOT FOLLOW. CHECK. Socket out of list', log='e')
+                # if not self.check_active_clients() and (time.time() - self.tictac) >= self.timeout:
+                #     self.kvprint(f'Time out and no clients. Closing kvserver')
+                #     # TODO send shutdown mesage to ECS
+                #     break
+            except socket.timeout as err:
+                self.kvprint(f'Exception listen_to_connections: {err} ')
+            except socket.error as err:
+                self.kvprint(f'Exception listen_to_connections: {err} ')
+
 
     def heartbeat(self, ecs=True):
         self.tictac = time.time()

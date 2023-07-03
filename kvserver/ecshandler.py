@@ -22,9 +22,8 @@ class ECS_handler:
         self.kv_data = kv_data
         self.clients_conn = clients_conn
         self.ring_metadata = {}
-        self.list_kvs_addr = []
 
-        # Lock write parameter
+        # Lock write parameter. While server starting locked
         self.write_lock = True
 
         # To turn of the ecs handler and the thread
@@ -33,8 +32,7 @@ class ECS_handler:
 
         # Timeout and heartbeat parameters
         self.heartbeat = timeout_config[0]
-        self.tictac = timeout_config[1]
-        self.timeout = timeout_config[2]
+        self.timeout = timeout_config[1]
 
     def connect_to_ECS(self):
         RETRY_INTERVAL = 1
@@ -46,8 +44,7 @@ class ECS_handler:
                 self.addr, self.port = self.sock.getsockname()
                 # self.socket_pool.append(self.sock)
                 self.sock.settimeout(10)
-                self.kvprint(
-                    f'Connected to ECS[{self.ecs_addr}:{self.ecs_port}]. Connection addr: {self.addr}:{self.port}')
+                self.kvprint(f'Connected to ECS. Connection addr: {self.addr}:{self.port}')
                 self.handle_json_REPLY('kvserver_data')
                 self.heartbeat()
                 break
@@ -55,83 +52,79 @@ class ECS_handler:
                 # self.kvprint(f'Error connecting:{e}. Retrying..')
                 time.sleep(RETRY_INTERVAL)
         self.handle_CONN()
+        self.handle_json_REPLY('kvserver_shutdown_now')
+        self.closing_all()
         self.sock.close()
+        self.kvprint(f'\n---------------------- \nClosing ECS Handler   \n----------------------')
+
 
     def handle_CONN(self):
         while self.ON:
             try:
                 data = self.sock.recv(128 * 1024).decode()
                 if data:
-                    self.handle_RECV(data)
-                    self.heartbeat(ecs=False)
+                    messages = data.replace('\\r\\n', '\r\n').split('\r\n')
+                    for msg in messages:
+                        if msg is None or msg == " " or not msg:
+                            break
+                        else:
+                            self.handle_RECV(msg)
+                            self.heartbeat(ecs=False)
                 else:
                     self.kvprint(f'No data. --> Closing socket')
                     self.ON = False
-                    self.sock.close()
             except Exception as e:
                 # self.kvprint(f'Exception handle_CONN: {e}')
                 continue
 
 
-    def handle_RECV(self, data):
-        messages = data.replace('\\r\\n', '\r\n').split('\r\n')
-        for msg in messages:
-            if msg is None or msg == " " or not msg:
-                break
+    def handle_RECV(self, msg):
+        try:
+            parsedata = json.loads(msg)
+            request = parsedata.get('request')
+            self.kvprint(f'Received message: {request}')
+            # REQUESTS
+            if request == 'heartbeat':
+                self.heartbeat(ecs=False)
+            elif request == 'kvserver_data':
+                self.handle_json_REPLY(request)
+            elif request == 'ring_metadata':
+                self.write_lock = True
+                self.ring_metadata = parsedata.get('data', {})
+                for key, value in self.ring_metadata.items():  # TODO delete when we just use str
+                    value[0] = str(value[0])
+                    value[1] = str(value[1])
+                    if value[2] == self.kv_data['host'] and value[3] == self.kv_data['port']:
+                        self.kv_data['hash_key'] = value[1]
+                        self.kv_data['previous_hash'] = value[0]
+                self.kvprint(f'UPDATED RING. Number of kv_servers: {len(self.ring_metadata)}')
+                self.write_lock = False
+            elif request == 'write_lock_act':
+                self.write_lock = True
+            elif request == 'write_lock_deact':
+                self.write_lock = False
+            elif request == 'arrange_ring':
+                data = parsedata.get('data', {})
+                if data is not None:
+                    thread = threading.Thread(target=self.send_data_kvserver, args=(data,))
+                    thread.start()
+                else:
+                    self.kvprint(f'Error in arrange_ring request. No node to send data')
             else:
-                try:
-                    parsedata = json.loads(msg)
-                    request = parsedata.get('request')
+                self.kvprint(f'error unknown command!')
 
-                    # REQUESTS
-                    if request == 'heartbeat':
-                        self.heartbeat(ecs=False)
-                        pass
-                    elif request == 'kvserver_data':
-                        self.handle_json_REPLY(request)
-                    elif request == 'ring_metadata':
-                        self.kvprint(f'Received message: {request}')
-                        self.ring_metadata = parsedata.get('data', {})
-                        self.list_kvs_addr = []
-                        for key, values in self.ring_metadata.items():  # TODO delete when we just use str
-                            values[0] = str(values[0])
-                            values[1] = str(values[1])
-                            self.list_kvs_addr.append(f'{values[2]}:{values[3]}')
-                        self.kvprint(f'UPDATED RING. Number of kv_servers: {len(self.ring_metadata)}')
-                        for key, value in self.ring_metadata.items():
-                            if value[2] == self.kv_data['host'] and value[3] == self.kv_data['port']:
-                                self.kv_data['hash_key'] = value[1]
-                                self.kv_data['previous_hash'] = value[0]
-                                break
-                        self.write_lock = False
-                    elif request == 'write_lock_act':
-                        self.write_lock = True
-                    elif request == 'write_lock_deact':
-                        self.write_lock = False
-                    elif request == 'arrange_ring':
-                        self.kvprint(f'Received message: {request}')
-                        data = parsedata.get('data', {})
-                        if data is not None:
-                            thread = threading.Thread(target=self.send_data_kvserver, args=(data,))
-                            thread.start()
-                        else:
-                            self.kvprint(f'Error. No node to send data')
-                    else:
-                        self.kvprint(f'error unknown command!')
-                except json.decoder.JSONDecodeError as e:
-                    self.kvprint(f'Error handling received: {str(e)} |MSG {msg}')
+        except json.decoder.JSONDecodeError as e:
+            self.kvprint(f'Error handling received: {str(e)} |MSG {msg}')
 
     def handle_REPLY(self, response):
         self.sock.sendall(bytes(f'{response}\r\n', encoding='utf-8'))
         self.kvprint(f'Sending normal msg: {response}')
 
     def handle_json_REPLY(self, request):
-        try:
-            json_data = json.dumps(self.REPLY_templates(request))
-            self.sock.sendall(bytes(f'{json_data}\r\n', encoding='utf-8'))
-            self.kvprint(f'Response sent:{request}')
-        except Exception as e:
-            self.kvprint(f'Error handle_json_REPLY while sending {request}: {e}')
+        json_data = json.dumps(self.REPLY_templates(request))
+        self.sock.sendall(bytes(f'{json_data}\r\n', encoding='utf-8'))
+        self.kvprint(f'Response sent:{request}')
+
 
     def REPLY_templates(self, request):
         if request == 'kvserver_data':
@@ -163,7 +156,7 @@ class ECS_handler:
                 'data': self.kv_data
             }
         else:
-            self.kvprint(f'Message templates. Request not found:{request}')
+            self.kvprint(f'Error Message templates. Request not found:{request}')
 
     def send_heartbeat(self):
         if self.sock.fileno() >= 0:
@@ -173,7 +166,7 @@ class ECS_handler:
 
     def kvprint(self, *args, log='d'):
         message = ' '.join(str(arg) for arg in args)
-        message = self.cli + message
+        message = '\t' + self.cli + message
         # message = self.print_cnfig[0] + self.cli + message
         if log == 'd':
             self.print_cnfig[1].debug(message)
@@ -241,22 +234,22 @@ class ECS_handler:
                         sock.sendall(bytes(f'{message}\r\n', encoding='utf-8'))
                         self.kvprint(f'\tSended hash {md5_hash} - {message}')
                         del db[key]
-        while True:
-            try:
-                data = sock.recv(128 * 1024).decode()
-                if data:
-                    messages = data.replace('\\r\\n', '\r\n').split('\r\n')
-                    for msg in messages:
-                        if msg is None or msg == " " or not msg:
-                            break
-                        else:
-                            self.kvprint(f'Arranging data:Message ', msg)
-                else:
-                    self.kvprint(f'Arranging data.No data. --> Closing socket')
-                    break
-            except Exception as e:
-                self.kvprint(f'Exception handle_CONN: {e}')
-                break
+        # while True:
+        #     try:
+        #         data = sock.recv(128 * 1024).decode()
+        #         if data:
+        #             messages = data.replace('\\r\\n', '\r\n').split('\r\n')
+        #             for msg in messages:
+        #                 if msg is None or msg == " " or not msg:
+        #                     break
+        #                 else:
+        #                     self.kvprint(f'Arranging data:Message ', msg)
+        #         else:
+        #             self.kvprint(f'Arranging data.No data. --> Closing socket')
+        #             break
+        #     except Exception as e:
+        #         self.kvprint(f'Exception handle_CONN: {e}')
+        #         break
         self.kvprint(f'Successfully rearrange data. Closing clients sockets..')
         sock.close()
 
@@ -266,11 +259,11 @@ class ECS_handler:
 
     def closing_all(self):
         self.kvprint(f'------- CLOSING ALL ------')
-        self.kvprint(f'Closing clients handlers...')
+        self.kvprint(f'Asking clients handler to close...')
         if self.clients_conn:
             for client_handler in self.clients_conn.values():
                 client_handler.conn_status = False
         time.sleep(2)
-        self.kvprint(f'Closing ECS handler...')
+        self.kvprint(f'Asking ECS handler to close...')
         self.ON = False
 
