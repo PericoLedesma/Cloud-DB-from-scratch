@@ -1,0 +1,19 @@
+2023-07-05 18:35:31,320 - DEBUG - [ECS]>------------------------------------------------------------
+2023-07-05 18:35:31,320 - DEBUG - [ECS]>                    ECS server on port 0.0.0.0:5002 
+2023-07-05 18:35:31,320 - DEBUG - [ECS]>------------------------------------------------------------
+2023-07-05 18:35:31,320 - DEBUG - [ECS]>Listening on 0.0.0.0:5002
+2023-07-05 18:35:33,157 - DEBUG - [ECS]>New kvserver connected: ('127.0.0.1', 60524). Waiting to receive KVS data
+2023-07-05 18:35:33,157 - DEBUG - [ECS]>	Received message from KVSNone: kvserver_data
+2023-07-05 18:35:33,157 - DEBUG - [ECS]>MSG sent to None: write_lock_act
+2023-07-05 18:35:33,157 - DEBUG - [ECS]>Adding new node
+2023-07-05 18:35:33,158 - DEBUG - [ECS]>Updating the ring. Len 1
+2023-07-05 18:35:33,158 - DEBUG - [ECS]>No replica nodes.
+2023-07-05 18:35:33,158 - DEBUG - [ECS]>New kvserver9!, Current ids:['9']
+2023-07-05 18:35:33,158 - DEBUG - [ECS]>Added. Connected[1]|Ring nodes:1
+2023-07-05 18:35:33,158 - DEBUG - [ECS]>MSG sent to 9: ring_metadata
+2023-07-05 18:36:15,698 - ERROR - [ECS]>Tic tac Time out and no kvs actives. Stop listening --> Closing ECS
+2023-07-05 18:36:15,698 - DEBUG - [ECS]>MSG sent to 9: shutdown_kvserver_now
+2023-07-05 18:36:15,698 - DEBUG - [ECS]>Message templates. Request not found:shutdown_kvserver_now
+2023-07-05 18:36:15,699 - DEBUG - [ECS]>------------------------------------------------------------
+2023-07-05 18:36:15,699 - DEBUG - [ECS]>                    Stopping ECS
+2023-07-05 18:36:15,699 - DEBUG - [ECS]>------------------------------------------------------------

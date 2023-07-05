@@ -22,7 +22,9 @@ class KVServer:
         self.name = f'KV{self.id}'
 
         # Time parameters
-        self.timeout = 30
+        self.kvs_timeout = 20
+        self.sock_timeout = 10 # For client and ECS
+        self.heartbeat_interval = 2 # kvs Socket sock_timeout that will control more or less the heartbeat time
         self.tictac = time.time()
 
         # Server Socket parameters
@@ -51,37 +53,34 @@ class KVServer:
         # Start processes
         self.init_log(log_level, log_file, directory)
         self.init_storage(directory)
-        self.kvprint(f'------------------------------------------------------------------')
-        self.kvprint(f'              KVSSERVER {self.id} Hosting in {self.addr}:{self.port}')
-        self.kvprint(f'------------------------------------------------------------------')
+        self.kvprint(f'{"-" * 60}')
+        self.kvprint(f'{" " * 20}KVSSERVER {self.id} Hosting in {self.addr}:{self.port}')
+        self.kvprint(f'{"-" * 60}')
 
         # ECS handler thread starter
         self.ecs = ECS_handler(self.kv_data,
                                self.clients_conn,
                                self.storage_dir,
                                [self.cli, self.log],
-                               [self.heartbeat, self.timeout])
-        ecs_thread = threading.Thread(target=self.ecs.connect_to_ECS, args=())
+                               [self.sock_timeout])
+        ecs_thread = threading.Thread(target=self.ecs.handle_CONN, args=())
         ecs_thread.start()
         self.RUN_kvserver()
 
 
     def RUN_kvserver(self):
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server.settimeout(self.timeout)
+        server.settimeout(self.heartbeat_interval)
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server.bind((self.addr, self.port))
         server.listen()
         try:
             self.listen_to_connections(server)
         except Exception as e:
-            self.kvprint(f'Exception: {e} --> Closing kvserver', log='e')
-            self.ecs.closing_all()
-
-
+            self.kvprint(f'Exception RUN_kvserver: {e} --> Closing kvserver', log='e')
         except KeyboardInterrupt:
             # Todo if it is not connect or never connected
-            self.ecs.handle_json_REPLY('kvserver_shutdown')
+            self.ecs.handle_json_REPLY('starting_shutdown_process')
             print("\n --------------------------------")
             print("\n ----> Init backup process <----")
             print("\n --------------------------------")
@@ -92,41 +91,32 @@ class KVServer:
                     if client_handler:
                         thread = threading.Thread(target=client_handler.handle_CONN, args=(True,))
                         thread.start()
-
         server.close()
-        self.kvprint(f'\n---------------------- \nClosing KVServer  {self.id}  \n----------------------')
+        self.kvprint(f'{"-"*60}')
+        self.kvprint(f'{" " * 20}KVServer{self.id} Stopped')
+        self.kvprint(f'{"-"*60}')
 
     def listen_to_connections(self, server):
         self.kvprint(f'Listening on {self.addr}:{self.port}')
-        self.heartbeat(ecs=False)
-        while self.ecs.ON:
+        while self.ecs.kvs_ON:
             try:
-                readable, _, _ = select.select([server], [], [], 10)
+                readable, _, _ = select.select([server], [], [], self.heartbeat_interval)
                 for sock in readable:
                     if sock is server:
                         conn, addr = sock.accept()
                         self.kvprint(f'Client accepted: {addr}')
                         self.init_client_handler(conn, addr)
-                        self.heartbeat()
                     else:
                         self.kvprint(f'OUTSIDE, SOCKET NOT FOLLOW. CHECK. Socket out of list', log='e')
-                # if not self.check_active_clients() and (time.time() - self.tictac) >= self.timeout:
-                #     self.kvprint(f'Time out and no clients. Closing kvserver')
-                #     # TODO send shutdown mesage to ECS
-                #     break
-            except socket.timeout as err:
-                self.kvprint(f'Exception listen_to_connections: {err} ')
-            except socket.error as err:
-                self.kvprint(f'Exception listen_to_connections: {err} ')
-
-
-    def heartbeat(self, ecs=True):
-        self.tictac = time.time()
-        if ecs is True:
-            try:
-                self.ecs.send_heartbeat()
+                # Depending if the kvserver has active clients or not
+                if self.check_active_clients():
+                    self.ecs.send_heartbeat(active=True)
+                else:
+                    self.ecs.send_heartbeat(active=False)
             except Exception as e:
-                self.kvprint(f'Exception in sending heartbeat to ecs: {e}', log='e')
+                self.kvprint(f'Exception listen_to_connections: {e}')
+        self.kvprint(f'Stop listening')
+
 
     def init_client_handler(self, conn, addr):
         client_id = 0  # Todo we are using new id for each new client
@@ -145,21 +135,12 @@ class KVServer:
                                                       ask_lock_ecs=self.ecs.ask_lock_ecs,
                                                       storage_dir=self.storage_dir,
                                                       printer_config=[self.cli, self.log],
-                                                      timeout_config=[self.heartbeat, self.tictac, self.timeout])
-        client_thread = threading.Thread(target=self.clients_conn[client_id].handle_CONN())
+                                                      timeout_config=[self.tictac, self.sock_timeout])
+        client_thread = threading.Thread(target=self.clients_conn[client_id].handle_CONN, args=())
         client_thread.start()
 
     def check_active_clients(self):
-        count = sum(value is not None for value in self.clients_conn.values())
-        active_ids = list()
-        ECS = 0
-        for key, value in self.clients_conn.items():
-            if value is None:
-                continue
-            else:
-                active_ids.append(value.client_id)
-        # self.kvprint(f'Waiting... Active clients: {count}, Ids: {active_ids}.| ECS: {ECS}')
-        return count
+        return sum(value is not None for value in self.clients_conn.values())
 
     def init_storage(self, directory):
         self.storage_dir = os.path.join(directory, f'kserver{self.id}_storage')
@@ -172,7 +153,7 @@ class KVServer:
             self.log.debug(message)
         if log == 'i':
             self.log.info(message)
-        if log == 'r':
+        if log == 'e':
             self.log.error(message)
 
     def init_log(self, log_level, log_file, directory):
