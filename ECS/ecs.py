@@ -18,16 +18,16 @@ class ECS:
         self.port = port
 
         # Time parameters
-        self.kvs_timeout = 15  # When we declare that a kvserver is not active
-        self.ecs_timeout = 15  # To control when to exit while loop.
-        self.sock_timeout = 15  # To control the while loop
+        self.kvs_timeout = 20  # When we declare that a kvserver is not active
+        self.ecs_timeout = 30  # To control when to exit while loop.
+        self.sock_timeout = 2  # To control the while loop
         self.tictac = time.time()
 
         # Data structures
         self.kvs_connected = {}  # Here we store the sockets of the connected kvservers
         self.kvs_data = {}  # Data to store all the information of the kvs
         self.shutting_down_queue = []
-        self.shutting_down = []
+        self.shuttingdown_kvservers = []
 
         # START
         self.init_log(log_level, log_file, directory)
@@ -59,7 +59,7 @@ class ECS:
                 for sock in readable:
                     if sock is server_socket:
                         kv_sock, kv_addr = server_socket.accept()
-                        self.ecsprint(f'New kvserver connected: {kv_addr}. Waiting to receive KVS data')
+                        self.ecsprint(f'New socket connected: {kv_addr}. Waiting to receive KVS data')
                         self.kvs_connected[kv_sock] = {'addr': kv_addr,
                                                        'sock': kv_sock}
                         self.heartbeat()
@@ -67,6 +67,7 @@ class ECS:
                         try:
                             data = sock.recv(128 * 1024).decode()
                             if data:
+
                                 self.handle_RECV(data, sock)
                             else:
                                 self.ecsprint(f'Socket recv => No data. Disconnected KVS{self.kv_id(sock)} --> Closing socket', log='e')
@@ -74,12 +75,22 @@ class ECS:
                         except Exception as e:
                             self.ecsprint(f'Exception recv: {e} --> Closing socket', log='e')
                             self.closing_kvserver(sock)
-
+                if self.shutting_down_queue and self.shuttingdown_kvservers == []:
+                    self.ecsprint(f'Cleaning shutdown queue')
+                    id = self.shutting_down_queue[0][0]
+                    socket_closing = self.shutting_down_queue[0][1]
+                    del self.shutting_down_queue[0]
+                    message = {
+                        'request': 'kvserver_shutdown',
+                        'data': {'id': id}
+                    }
+                    self.handle_REQUEST(self, message, socket_closing)
+                self.check_active_kvservers()
                 if (time.time() - self.tictac) >= self.ecs_timeout and self.check_active_kvservers() is False:
                     self.ecsprint(f'Tic tac Time out and no kvs actives. Stop listening --> Closing ECS', log='e')
                     break
 
-            self.broadcast('shutdown_kvserver_now')
+            self.broadcast('shutdown_ecs')
             server_socket.close()
         except KeyboardInterrupt:
             server_socket.close()
@@ -115,48 +126,44 @@ class ECS:
                     'active': False # If it has clients, last active heartbeat
                 }
                 self.hash_class.new_node(self.kvs_data, id, self.handle_json_REPLY, self.ecsprint)
-                self.ecsprint(f'New kvserver{id}!, Current ids:{list(self.kvs_data)}')
-                self.ecsprint(f'Added. Connected[{len(self.kvs_connected.keys())}]|Ring nodes:{len(self.hash_class.RING_metadata)}')
+                self.ecsprint(f'++ New kvserver{id} saved!, Current ids:{list(self.kvs_data)}')
+                self.ecsprint(f'Num. KVS connected[{len(self.kvs_connected.keys())}]|Num. Ring nodes:{len(self.hash_class.RING_metadata)}')
                 self.broadcast('ring_metadata')
             elif request == 'heartbeat':
                 id = self.kv_id(sock)
                 data = parsedata.get('data', {})
                 if data.get('active'):
-                    print(f'Heartbeat from active KVS{self.kv_id(sock)}.')
                     self.kvs_data[id]['active'] = time.time()
                     self.heartbeat()
             elif request == 'ring_metadata':
                 self.broadcast('ring_metadata')
             elif request == 'starting_shutdown_process':
                 data = parsedata.get('data', {}) #Todo is kvserver is not in the ring
-                if self.shutting_down is None or self.shutting_down == []:
-                    self.broadcast('write_lock_act')
-                    self.hash_class.remove_node(self.kvs_data, data['id'], sock, self.handle_json_REPLY, self.ecsprint)
-                    self.broadcast('ring_metadata')
-                    self.shutting_down.append(data['id'])
+                if data['id'] in self.kvs_data.keys():
+                    if self.shuttingdown_kvservers is None or self.shuttingdown_kvservers == []:
+                        self.broadcast('write_lock_act')
+                        self.hash_class.remove_node(self.kvs_data, data['id'], sock, self.handle_json_REPLY,
+                                                    self.ecsprint)
+                        self.broadcast('ring_metadata')
+                        self.shuttingdown_kvservers.append(data['id'])
+                    else:
+                        self.shutting_down_queue.append((data['id'], sock))
+                        self.ecsprint(f'WAITING there is a kvserver shutting down')
                 else:
-                    self.shutting_down_queue.append((data['id'], sock))
-                    self.ecsprint(f'WAITING there is a kvserver shutting down')
-            elif request == 'kvserver_shutdown_now': #Todo
+                    self.ecsprint(f'Error. KVSERVER{data["id"]} not found ')
+            elif request == 'kvserver_shutdown': #Todo
                 data = parsedata.get('data', {})
-                self.shutting_down.remove(data['id'])
+                if data['id'] in self.shuttingdown_kvservers:
+                    self.shuttingdown_kvservers.remove(data['id'])
+                    print('Removing kvserver from shutting down ')
+                else:
+                    print('Kvserver not in shutdown process. CHECK ')
                 sock.close()
                 del self.kvs_connected[sock]
             else:
                 self.ecsprint(f'error unknown command!')
-            if self.shutting_down_queue and self.shutting_down == []:
-                print('Cleaning shutdown queue')
-                id = self.shutting_down_queue[0][0]
-                socket = self.shutting_down_queue[0][1]
-                del self.shutting_down_queue[0]
-                message =  {
-                    'request': 'kvserver_shutdown',
-                    'data': {'id': id}
-                }
-                self.handle_REQUEST(self, message, socket)
-
         except Exception as e:
-            self.ecsprint(f'Error handling request\parsing JSON: {str(e)}', log='e')
+            self.ecsprint(f'Error handling request\parsing JSON of KVS{self.kv_id(sock)}: {str(e)}', log='e')
 
     def broadcast(self, request):
         for sock in self.kvs_connected:
@@ -173,12 +180,12 @@ class ECS:
             json_data = json.dumps(self.REPLY_templates(request, data))
             sock.sendall(bytes(f'{json_data}\r\n', encoding='utf-8'))
         except Exception as e:
-            self.ecsprint(f'Error while sending request {request}: {e}', log='e')
+            self.ecsprint(f'Error while sending request {request} to KVS{self.kv_id(sock)}: {e}', log='e')
 
     def REPLY_templates(self, request, data):
         if request == 'kvserver_data':
             return {
-                'request': 'kvserver_data'
+                'request': request
             }
         elif request == 'ring_metadata':
             return {
@@ -187,15 +194,19 @@ class ECS:
             }
         elif request == 'write_lock_act':
             return {
-                'request': 'write_lock_act'
+                'request': request
             }
         elif request == 'write_lock_deact':
             return {
-                'request': 'write_lock_deact'
+                'request': request
+            }
+        elif request == 'shutdown_ecs':
+            return {
+                'request': request
             }
         elif request == 'arrange_ring':
             return {
-                'request': 'arrange_ring',
+                'request': request,
                 'data': data
             }
         else:
@@ -214,29 +225,40 @@ class ECS:
             return sock.getpeername()
 
     def check_active_kvservers(self):
+        # Todo we can simplify after
+        active =  False
+        list = []
         for key, item in self.kvs_data.items():
             elapsed_time = time.time() - item['active']
+
             if elapsed_time < self.kvs_timeout:
-                return True
-        return False
+                active = True
+                list.append(f'KVS{key}-active')
+            else:
+                list.append(f'KVS{key}-NOactive')
+
+        self.ecsprint(f'KVSERVERS - > {list}')
+        if active:
+            return True
+        else:
+            return False
 
     def closing_kvserver(self, sock): # Closing without backup process
-        print('Closing kvserver... CHECKKKKKK')
-        print('\t Searching for id')
-        self.broadcast('write_lock_act')
-        for id, values in self.kvs_data.items():
-            if values['sock'] == sock:
-                id = values['id']
-                break
-        print('\t If kvserver as node in ring, delete it and updating the ring')
+        id = self.kv_id(sock)
+        self.ecsprint(f'Removing kvserver{id}... ')
         if self.kvs_data[id]['to_hash'] in self.hash_class.RING_metadata:
+            self.broadcast('write_lock_act')
             del self.hash_class.RING_metadata[self.kvs_data[id]['to_hash']]
             self.hash_class.update_ring_intervals(self.kvs_data)
+            self.broadcast('ring_metadata') # todo check what shuting down nodes do with ring_metadata
         else:
-            print('\tNot found as node in the ring. Closing socket')
+            self.ecsprint(f'\tNot found as node in the ring. Just removing and closing socket')
+
+        try:
+            del self.kvs_connected[sock]
+        except:
+            self.ecsprint(f'Check, deleted socket not in connected socket')
         sock.close()
-        del self.kvs_connected[sock]
-        self.broadcast('ring_metadata')
 
 
     def ecsprint(self, *args, log='d'):

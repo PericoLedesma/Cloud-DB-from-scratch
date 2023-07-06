@@ -11,14 +11,13 @@ class ConsistentHashing:
         md5_hash = hashlib.md5(key.encode()).hexdigest()
         # md5_hash = int(md5_hash[:3], 16)
         if len(md5_hash) == 32:
-            md5_hash = int(md5_hash[:3], 16)
+            # md5_hash = int(md5_hash[:3], 16) #todo CAREFUL
             return md5_hash  # For testing, just take one byte. Easier to check
         else:
             raise Exception('Error in hash. Not getting all the character. Error when sorting probably')
 
     def update_ring_intervals(self, ecsprint):
         ecsprint(f'Updating the ring. Len {len(self.RING_metadata)}')
-
         if len(self.RING_metadata) != 0:
             # We update the ring intervals if there is any node
             self.RING_metadata = {k: self.RING_metadata[k] for k in sorted(self.RING_metadata)}
@@ -30,8 +29,6 @@ class ConsistentHashing:
 
             if len(self.RING_metadata) > 2:
                 # If more than 2 nodes we create the replicas structure
-                print('REPLICA ACTIVATED')
-
                 coordinator = list(self.RING_metadata.keys())[-1]
                 replica1 = list(self.RING_metadata.keys())[-2]
                 for key, values in self.RING_metadata.items():
@@ -49,8 +46,8 @@ class ConsistentHashing:
                                                   'type': 'R2'}
                     coordinator = replica1
                     replica1 = key
-                for key, values in self.RING_replicas.items():
-                    print(key, '+', values)
+                # for key, values in self.RING_replicas.items():
+                #     print(key, '+', values)
             else:
                 ecsprint(f'No replica nodes.')
         else:
@@ -75,7 +72,6 @@ class ConsistentHashing:
             self.update_ring_intervals(ecsprint)
             for data in kvs_data.values():
                 data['from'] = self.RING_metadata[data['to_hash']]['from']
-
             old_hashes = list(old_ring.keys())
             next_hash = min(old_hashes)
             old_hashes.sort()
@@ -106,7 +102,7 @@ class ConsistentHashing:
 
 
     def remove_node(self, kvs_data, id, sock, handle_json_REPLY, ecsprint):
-        ecsprint(f'Removing node {kvs_data[id]["name"]}')
+        ecsprint(f'-- Removing node {kvs_data[id]["name"]}')
         # self.kvs_shuttingdown[kvs_data[id]['to_hash']] = self.RING_metadata[kvs_data[id]['to_hash']]
         del self.RING_metadata[kvs_data[id]['to_hash']]
 

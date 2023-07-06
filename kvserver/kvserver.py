@@ -18,7 +18,7 @@ class KVServer:
         # Server parameters
         # self.id = id
         self.id = addr[-1]
-        self.id = str(port)[-1]
+        # self.id = str(port)[-1]
         self.name = f'KV{self.id}'
 
         # Time parameters
@@ -81,11 +81,12 @@ class KVServer:
         except KeyboardInterrupt:
             # Todo if it is not connect or never connected
             self.ecs.handle_json_REPLY('starting_shutdown_process')
-            print("\n --------------------------------")
-            print("\n ----> Init backup process <----")
-            print("\n --------------------------------")
+            print(" --------------------------------")
+            print(" ----> Init backup process <----")
+            print(" --------------------------------")
             self.ecs.write_lock = True
             self.ecs.shutdown = True
+            self.listen_to_connections(server)
             if self.clients_conn:
                 for id, client_handler in self.clients_conn.items():
                     if client_handler:
@@ -108,18 +109,17 @@ class KVServer:
                         self.init_client_handler(conn, addr)
                     else:
                         self.kvprint(f'OUTSIDE, SOCKET NOT FOLLOW. CHECK. Socket out of list', log='e')
-                # Depending if the kvserver has active clients or not
-                if self.check_active_clients():
+                if self.check_active_clients(): # Depending if the kvserver has active clients or not
                     self.ecs.send_heartbeat(active=True)
                 else:
                     self.ecs.send_heartbeat(active=False)
             except Exception as e:
-                self.kvprint(f'Exception listen_to_connections: {e}')
+                self.kvprint(f'Exception listen_to_connections: {e}. Continue')
         self.kvprint(f'Stop listening')
 
 
     def init_client_handler(self, conn, addr):
-        client_id = 0  # Todo we are using new id for each new client
+        client_id = 0  # Todo check
         while True:
             if client_id in self.clients_conn:
                 client_id += 1

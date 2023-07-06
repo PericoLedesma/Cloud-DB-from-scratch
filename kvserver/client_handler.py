@@ -41,9 +41,7 @@ class Client_handler:
 
         # START
         self.cache_init(cache_config)
-        self.kvprint(f'{"-"*60}')
-        self.kvprint(f'{" " * 20}Client handler {self.client_id} Connected')
-        self.kvprint(f'{"-"*60}')
+        self.kvprint(f'{"-" * 20}> Client handler {self.client_id} Connected <{"-" * 20}')
         self.handle_RESPONSE(self.welcome_msg)
 
 
@@ -74,9 +72,7 @@ class Client_handler:
                 break
         self.clients_conn[self.client_id] = None
         self.client_fd.close()
-        self.kvprint(f'{"-"*60}')
-        self.kvprint(f'{" " * 20}Client handler {self.client_id} Stopped')
-        self.kvprint(f'{"-"*60}')
+        self.kvprint(f'{"-" * 20}> Client handler {self.client_id} Stopped <{"-" * 20}')
         del self
 
 
@@ -85,14 +81,13 @@ class Client_handler:
         if method in ['put', 'delete'] and shutdown is False:  # Some checks
             if self.ask_lock_write_value() is False:
                 key = args[0]
-                hash = self.hash(key)
-                if self.key_checker(hash) is False:
+                if self.key_checker(self.hash(key)) is False:
                     self.handle_RESPONSE(f'server_not_responsible') # TODO delete data
                 else:
                     self.handle_REQUEST(method, *args)
             elif self.ask_lock_write_value():
                 self.handle_RESPONSE('server_write_lock')
-                self.ask_lock_ecs() #TODO to eliminate
+                self.ask_lock_ecs() #todo check
         elif method in ['get']:
             if shutdown:
                 self.handle_REQUEST(method, *args)
@@ -102,6 +97,9 @@ class Client_handler:
                     self.handle_RESPONSE(f'server_not_responsible') # TODO delete data
                 else:
                     self.handle_REQUEST(method, *args)
+        elif method in ['organise']:
+            method, args = args[0], args[1:]
+            self.handle_REQUEST(method, *args)
         elif method in ['keyrange']:
             self.handle_REQUEST(method, *args)
         elif method in ['show', 'close']:
@@ -133,15 +131,18 @@ class Client_handler:
         elif request == 'show':
             self.kvprint(f'Request => show db')
             self.handle_RESPONSE(self.print_storage())
+        elif request == 'completed':
+            self.kvprint(f'Request => organise completed')
+            self.handle_RESPONSE('organise received')
         elif request == 'keyrange':
             self.kvprint(f'Request => keyrange')
             message = ''
-            self.kvprint(f'------ Keyranges -----')
+            # self.kvprint(f'------ Keyranges -----')
             for v in self.ask_ring_metadata().values():  # Posible problem por el orden
-                row = f'{v["from"]},{v["to_hash"]},{v["host"]}:{v["port"]},{v["type_replica"]};'
-                message = f'{message} {row}'
-                self.kvprint(f'{row}')
-            self.kvprint(f'------ Keyranges -----')
+                row = f'{v["from"]},{v["to_hash"]},{v["host"]}:{v["port"]};'
+                message = f'{message}{row}'
+            #     self.kvprint(f'{row}')
+            # self.kvprint(f'------ Keyranges -----')
             self.handle_RESPONSE(message)
         elif request == 'close':
             self.kvprint(f'Request => close')
@@ -217,7 +218,9 @@ class Client_handler:
         self.client_fd.sendall(bytes(f'{response}\r\n', encoding='utf-8'))
 
     def key_checker(self, hash):
-        print('KEYCHECKER')
+        int_hash = int(hash, 16)
+        self.kvprint(f'Key_checker: len(ring_metadata) =  {len(self.ask_ring_metadata())}')
+
         if len(self.ask_ring_metadata()) == 1:
             if self.ask_ring_metadata()[self.kv_data['to_hash']] is not None:
                 return True
@@ -227,14 +230,19 @@ class Client_handler:
             list_hash = list(self.ask_ring_metadata()).copy()
             sorted_hash_list = sorted(list_hash, key=lambda x: int(x, 16))
             if sorted_hash_list[0] == self.kv_data['to_hash']:  # If it is the last range
-                if sorted_hash_list[-1] < hash or sorted_hash_list[0] > hash:
+                if int(sorted_hash_list[-1], 16) < int_hash or int_hash < int(sorted_hash_list[0], 16):
+                    # self.kvprint(f'KEY_checker1 True.  {sorted_hash_list[-1]} < {hash} or {hash} < {sorted_hash_list[0]} ', log='e')
                     return True
                 else:
+                    # self.kvprint(f'KEY_checker2 False.  {sorted_hash_list[-1]} < {hash} < {sorted_hash_list[0]}', log='e')
                     return False
             else:
-                if hash > self.kv_data['from'] and hash < self.kv_data['to_hash']:
+
+                if int_hash > int(self.kv_data['from'], 16) and int_hash < int(self.kv_data['to_hash'], 16):
+                    # self.kvprint(f'KEY_checker3 True.  {self.kv_data["from"]} < {hash} < {self.kv_data["to_hash"]}', log='e')
                     return True
                 else:
+                    # self.kvprint(f'KEY_checker4 False.  {self.kv_data["from"]} < {hash} < {self.kv_data["to_hash"]}', log='e')
                     return False
         elif self.ask_ring_metadata() is None or self.ask_ring_metadata() == {}:
             self.kvprint('Error in key_checker. ring_metadata EMPTY', log='e')
@@ -246,8 +254,9 @@ class Client_handler:
 
     def hash(self, key):
         md5_hash = hashlib.md5(key.encode()).hexdigest()
-        md5_hash = int(md5_hash[:3], 16)
-        return str(md5_hash)
+        # md5_hash = int(md5_hash[:3], 16)
+        # return str(md5_hash)
+        return md5_hash
 
     def cache_init(self, cache_config):
         cache_type, cache_cap = cache_config[0], cache_config[1]
@@ -273,7 +282,7 @@ class Client_handler:
 
     def kvprint(self, *args, log='d'):
         message = ' '.join(str(arg) for arg in args)
-        message = self.cli + message
+        message = '\t' + self.cli + message
         # message = self.print_cnfig[0] + self.cli + message
         if log == 'd':
             self.print_cnfig[1].debug(message)

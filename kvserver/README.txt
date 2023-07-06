@@ -36,13 +36,21 @@ Notes:
 docker exec -it 401ea30f115c ls /server
 
 
-
+### MS3
 docker build -t gitlab.lrz.de:5005/cdb-23/gr4/ms3/kv-server .
 docker push gitlab.lrz.de:5005/cdb-23/gr4/ms3/kv-server
 
 docker build -t gitlab.lrz.de:5005/cdb-23/gr4/ms3/ecs-server .
 docker push gitlab.lrz.de:5005/cdb-23/gr4/ms3/ecs-server
 
+### MS4
+docker build -t gitlab.lrz.de:5005/cdb-23/gr4/ms4/kv-server .
+docker push gitlab.lrz.de:5005/cdb-23/gr4/ms4/kv-server
+
+docker build -t gitlab.lrz.de:5005/cdb-23/gr4/ms4/ecs-server .
+docker push gitlab.lrz.de:5005/cdb-23/gr4/ms4/ecs-server
+
+gitlab.lrz.de:5005/cdb-23/gr4/ms4/kv-server
 
 &
 python "$PROJECT_PATH/kvserver/kvserver.py" "-a 127.0.0.1" "-p 37959" "-ll INFO" "-d process_data " "-s FIFO" "-c 10" "-b 127.0.0.1:40823"  &
