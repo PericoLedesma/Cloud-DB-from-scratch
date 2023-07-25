@@ -8,11 +8,9 @@ class Client_handler:
     def __init__(self,
                  clients_conn,
                  client_data,
-                 ask_ring_metadata,
+                 ring_structures,
                  cache_config,
                  lock,
-                 ask_lock_write_value,
-                 ask_lock_ecs,
                  storage_dir,
                  printer_config,
                  timeout_config):
@@ -27,21 +25,25 @@ class Client_handler:
         self.client_fd.settimeout(timeout_config[1])
 
         # Some function to ask for data. todo rethink
-        self.ask_ring_metadata = ask_ring_metadata
-        self.ask_lock_write_value = ask_lock_write_value
-        self.ask_lock_ecs = ask_lock_ecs
+        self.ask_ring = ring_structures[0]
+        self.ask_replicas = ring_structures[1]
+        self.ask_lock = ring_structures[2]
+        self.ask_lock_ecs = ring_structures[3]
+
+
 
         self.conn_status = True
         self.lock = lock
         self.storage_dir = storage_dir
 
-        self.welcome_msg = f'Hi! Connection to {self.kv_data["name"]} established'
-        self.cli = f'[Handler C{self.client_id}]>'
+        self.welcome_msg = f'Hi! You are connected to {self.kv_data["name"]}.'
+        self.cli = f'[Handler C{self.client_id}]>' # Todo change name is it is a replica
         self.print_cnfig = printer_config
 
         # START
         self.cache_init(cache_config)
-        self.kvprint(f'{"-" * 20}> Client handler {self.client_id} Connected <{"-" * 20}')
+        self.kvprint(f'> Running Client handler {self.client_id}')
+
         self.handle_RESPONSE(self.welcome_msg)
 
 
@@ -57,9 +59,9 @@ class Client_handler:
                             break
                         else:
                             self.kvprint(f'Message recv: {msg}')
-                            if len(self.ask_ring_metadata()) > 0: # TODO rethink the start
+                            if len(self.ask_ring()) > 0:
                                 self.handle_RECV(msg, shutdown)
-                            elif len(self.ask_ring_metadata()) == 0:
+                            elif len(self.ask_ring()) == 0:
                                 self.handle_RESPONSE('server_stopped')
                 else:
                     self.kvprint(f'No data handle_CONN --> Closing socket', log='e')
@@ -72,43 +74,47 @@ class Client_handler:
                 break
         self.clients_conn[self.client_id] = None
         self.client_fd.close()
-        self.kvprint(f'{"-" * 20}> Client handler {self.client_id} Stopped <{"-" * 20}')
+        self.kvprint(f'Client handler {self.client_id} Stopped')
         del self
+        exit(0)
 
 
     def handle_RECV(self, msg, shutdown):
         method, *args = msg.split()
-        if method in ['put', 'delete'] and shutdown is False:  # Some checks
-            if self.ask_lock_write_value() is False:
+        if shutdown is False:
+            if method in ['put', 'delete'] and self.ask_lock() is False:
                 key = args[0]
-                if self.key_checker(self.hash(key)) is False:
+                if self.key_check_coordinators(self.hash(key)) is False:
                     self.handle_RESPONSE(f'server_not_responsible') # TODO delete data
                 else:
                     self.handle_REQUEST(method, *args)
-            elif self.ask_lock_write_value():
+            elif method in ['put', 'delete'] and self.ask_lock():
                 self.handle_RESPONSE('server_write_lock')
                 self.ask_lock_ecs() #todo check
-        elif method in ['get']:
-            if shutdown:
-                self.handle_REQUEST(method, *args)
-            else:
-                hash = self.hash(args[0])
-                if self.key_checker(hash) is False:
-                    self.handle_RESPONSE(f'server_not_responsible') # TODO delete data
+            elif method in ['get']:
+                key = self.hash(args[0])
+                if self.key_check_coordinators(key) is False: #todo and self.key_check_replicas(hash) is False:
+                    self.handle_RESPONSE(f'server_not_responsible')
                 else:
                     self.handle_REQUEST(method, *args)
-        elif method in ['organise']:
-            method, args = args[0], args[1:]
-            self.handle_REQUEST(method, *args)
-        elif method in ['keyrange']:
-            self.handle_REQUEST(method, *args)
-        elif method in ['show', 'close']:
-            self.handle_REQUEST(method, *args)
-        else:
-            if method in ['put', 'delete'] and shutdown:
+            elif method in ['keyrange', 'keyrange_read', 'show', 'close']:
+                self.handle_REQUEST(method, *args)
+            elif method in ['you_are_my_replica']:
+                self.handle_REQUEST(method, *args)
+            else:
+                self.handle_RESPONSE('error unknown command! (shutdown OFF)')
+        elif shutdown:
+            if method in ['get', 'show', 'close']:
+                self.handle_REQUEST(method, *args)
+            elif method in ['put', 'delete', 'keyrange', 'keyrange_read']:
                 self.handle_RESPONSE('server_stopped')
             else:
-                self.handle_RESPONSE('error unknown command!')
+                self.handle_RESPONSE('error unknown command! (shutdown ON)')
+
+        if method in ['organise']:
+            method, args = args[0], args[1:]
+            self.handle_REQUEST(method, *args)
+
 
     def handle_REQUEST(self, request, *args):
         if request == 'put' and len(args) > 1:
@@ -137,17 +143,27 @@ class Client_handler:
         elif request == 'keyrange':
             self.kvprint(f'Request => keyrange')
             message = ''
-            # self.kvprint(f'------ Keyranges -----')
-            for v in self.ask_ring_metadata().values():  # Posible problem por el orden
+            # self.kvprint(self.ask_ring())
+            # self.kvprint('-------')
+            # self.kvprint(self.ring_metadata2)
+            for key, v in self.ask_ring().items():
+                if v['type'] == 'C':
+                    row = f'{v["from"]},{v["to_hash"]},{v["host"]}:{v["port"]};'
+                    message = f'{message}{row}'
+            self.handle_RESPONSE(message)
+        elif request == 'keyrange_read':
+            self.kvprint(f'Request => keyrange_read')
+            message = ''
+            for key, v in self.ask_ring().items():
                 row = f'{v["from"]},{v["to_hash"]},{v["host"]}:{v["port"]};'
                 message = f'{message}{row}'
-            #     self.kvprint(f'{row}')
-            # self.kvprint(f'------ Keyranges -----')
             self.handle_RESPONSE(message)
         elif request == 'close':
             self.kvprint(f'Request => close')
             self.conn_status = False
             self.handle_RESPONSE('End connection with client')
+        elif request == 'you_are_my_replica':
+            self.kvprint(f'Request => you_are_my_replica Success')
         else:  # ERRORS
             if request == 'pass':  # Logic when the
                 pass
@@ -158,7 +174,7 @@ class Client_handler:
             elif request == 'delete' and len(args) != 1:
                 self.handle_RESPONSE('error only 1 arguments')
             else:
-                self.handle_RESPONSE('error unknown command!')
+                self.handle_RESPONSE(f'error unknown command! => {request} ')
 
     def PUT_request(self, key, value):
         self.kvprint(f'Request => put {key} {value}')
@@ -176,6 +192,7 @@ class Client_handler:
                     db[key] = value
                     # self.kvprint(f'{key}Data stored: key={key}, value={value}')
                     self.handle_RESPONSE(f'put_success {key}')
+
         except Exception as e:
             self.kvprint(f'Exception in put request: {e} ', log='e')
             self.handle_RESPONSE('put_error')
@@ -217,40 +234,64 @@ class Client_handler:
         self.kvprint(f'Reply sent:{response}')
         self.client_fd.sendall(bytes(f'{response}\r\n', encoding='utf-8'))
 
-    def key_checker(self, hash):
+    def key_check_coordinators(self, hash):
+        # Here we check just coordinators nodes
         int_hash = int(hash, 16)
-        self.kvprint(f'Key_checker: len(ring_metadata) =  {len(self.ask_ring_metadata())}')
-
-        if len(self.ask_ring_metadata()) == 1:
-            if self.ask_ring_metadata()[self.kv_data['to_hash']] is not None:
+        self.kvprint(f'key_check_coordinators: len(ring_metadata) =  {len(self.ask_ring())}')
+        if len(self.ask_ring()) == 1:
+            if self.ask_ring()[self.kv_data['to_hash']] is not None:
                 return True
             else:
-                raise Exception('Key checker ERROR. Check this flow')
-        elif len(self.ask_ring_metadata()) > 1:
-            list_hash = list(self.ask_ring_metadata()).copy()
+                raise Exception('Key checker ERROR. Just one node and it is not me')
+        elif len(self.ask_ring()) > 1:
+            list_hash = list(self.ask_ring()).copy()
             sorted_hash_list = sorted(list_hash, key=lambda x: int(x, 16))
             if sorted_hash_list[0] == self.kv_data['to_hash']:  # If it is the last range
                 if int(sorted_hash_list[-1], 16) < int_hash or int_hash < int(sorted_hash_list[0], 16):
-                    # self.kvprint(f'KEY_checker1 True.  {sorted_hash_list[-1]} < {hash} or {hash} < {sorted_hash_list[0]} ', log='e')
                     return True
                 else:
-                    # self.kvprint(f'KEY_checker2 False.  {sorted_hash_list[-1]} < {hash} < {sorted_hash_list[0]}', log='e')
+                    return False
+            else:
+                if int_hash > int(self.kv_data['from'], 16) and int_hash < int(self.kv_data['to_hash'], 16):
+                    return True
+                else:
+                    return False
+        elif self.ask_ring() is None or self.ask_ring() == {}:
+            self.kvprint('ERROR in key_check_coordinators. ring_metadata EMPTY', log='e')
+            return None
+        else:
+            self.kvprint('ERROR in key_check_coordinators. Outside the logic. Check. ', log='e')
+            return None
+
+    def key_check_replicas(self, hash):
+        int_hash = int(hash, 16)
+        self.kvprint(f'key_check_replicas: len(ring_metadata) =  {len(self.ask_replicas())}')
+
+        if len(self.ask_ring()) == 1:
+            if self.ask_ring()[self.kv_data['to_hash']] is not None:
+                return True
+            else:
+                raise Exception('Key checker ERROR. Just one node and it is not me')
+        elif len(self.ask_ring()) > 1:
+            list_hash = list(self.ask_ring()).copy()
+            sorted_hash_list = sorted(list_hash, key=lambda x: int(x, 16))
+            if sorted_hash_list[0] == self.kv_data['to_hash']:  # If it is the last range
+                if int(sorted_hash_list[-1], 16) < int_hash or int_hash < int(sorted_hash_list[0], 16):
+                    return True
+                else:
                     return False
             else:
 
                 if int_hash > int(self.kv_data['from'], 16) and int_hash < int(self.kv_data['to_hash'], 16):
-                    # self.kvprint(f'KEY_checker3 True.  {self.kv_data["from"]} < {hash} < {self.kv_data["to_hash"]}', log='e')
                     return True
                 else:
-                    # self.kvprint(f'KEY_checker4 False.  {self.kv_data["from"]} < {hash} < {self.kv_data["to_hash"]}', log='e')
                     return False
-        elif self.ask_ring_metadata() is None or self.ask_ring_metadata() == {}:
-            self.kvprint('Error in key_checker. ring_metadata EMPTY', log='e')
+        elif self.ask_ring() is None or self.ask_ring() == {}:
+            self.kvprint('Error in key_check_replicas. ring_metadata EMPTY', log='e')
             return None
         else:
-            self.kvprint('Error in key_checker. Outside the logic. Check. ', log='e')
+            self.kvprint('Error in key_check_replicas. Outside the logic. Check. ', log='e')
             return None
-
 
     def hash(self, key):
         md5_hash = hashlib.md5(key.encode()).hexdigest()
@@ -286,7 +327,7 @@ class Client_handler:
         # message = self.print_cnfig[0] + self.cli + message
         if log == 'd':
             self.print_cnfig[1].debug(message)
-        if log == 'i':
+        elif log == 'i':
             self.print_cnfig[1].info(message)
-        if log == 'e':
-            self.print_cnfig[1].info(message)
+        elif log == 'e':
+            self.print_cnfig[1].error(message)

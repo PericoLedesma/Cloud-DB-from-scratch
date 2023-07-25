@@ -9,7 +9,6 @@ import argparse
 import logging
 import select
 
-
 os.system('cls' if os.name == 'nt' else 'clear')
 
 
@@ -23,8 +22,8 @@ class KVServer:
 
         # Time parameters
         self.kvs_timeout = 20
-        self.sock_timeout = 10 # For client and ECS
-        self.heartbeat_interval = 2 # kvs Socket sock_timeout that will control more or less the heartbeat time
+        self.sock_timeout = 15  # For client and ECS
+        self.heartbeat_interval = 5  # kvs Socket sock_timeout that will control more or less the heartbeat time
         self.tictac = time.time()
 
         # Server Socket parameters
@@ -62,11 +61,10 @@ class KVServer:
                                self.clients_conn,
                                self.storage_dir,
                                [self.cli, self.log],
-                               [self.sock_timeout])
+                               self.sock_timeout)
         ecs_thread = threading.Thread(target=self.ecs.handle_CONN, args=())
         ecs_thread.start()
         self.RUN_kvserver()
-
 
     def RUN_kvserver(self):
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -81,9 +79,9 @@ class KVServer:
         except KeyboardInterrupt:
             # Todo if it is not connect or never connected
             self.ecs.handle_json_REPLY('starting_shutdown_process')
-            print(" --------------------------------")
-            print(" ----> Init backup process <----")
-            print(" --------------------------------")
+            self.kvprint(" --------------------------------")
+            self.kvprint(" ----> Init backup process <----")
+            self.kvprint(" --------------------------------")
             self.ecs.write_lock = True
             self.ecs.shutdown = True
             self.listen_to_connections(server)
@@ -93,9 +91,11 @@ class KVServer:
                         thread = threading.Thread(target=client_handler.handle_CONN, args=(True,))
                         thread.start()
         server.close()
-        self.kvprint(f'{"-"*60}')
+        self.kvprint(f'{"-" * 60}')
         self.kvprint(f'{" " * 20}KVServer{self.id} Stopped')
-        self.kvprint(f'{"-"*60}')
+        self.kvprint(f'{"-" * 60}')
+        del self
+        exit(0)
 
     def listen_to_connections(self, server):
         self.kvprint(f'Listening on {self.addr}:{self.port}')
@@ -109,14 +109,13 @@ class KVServer:
                         self.init_client_handler(conn, addr)
                     else:
                         self.kvprint(f'OUTSIDE, SOCKET NOT FOLLOW. CHECK. Socket out of list', log='e')
-                if self.check_active_clients(): # Depending if the kvserver has active clients or not
+                if self.check_active_clients():  # Depending if the kvserver has active clients or not
                     self.ecs.send_heartbeat(active=True)
                 else:
                     self.ecs.send_heartbeat(active=False)
             except Exception as e:
                 self.kvprint(f'Exception listen_to_connections: {e}. Continue')
         self.kvprint(f'Stop listening')
-
 
     def init_client_handler(self, conn, addr):
         client_id = 0  # Todo check
@@ -126,18 +125,20 @@ class KVServer:
                 continue
             else:
                 break
+        self.kvprint(f'Init client handler....')
         self.clients_conn[client_id] = Client_handler(clients_conn=self.clients_conn,
                                                       client_data=[self.kv_data, client_id, conn, addr],
-                                                      ask_ring_metadata=self.ecs.ask_ring_metadata,
+                                                      ring_structures=[self.ecs.ask_ring, self.ecs.ask_replicas, self.ecs.ask_lock, self.ecs.ask_lock_ecs],
                                                       cache_config=[self.c_strg, self.c_size],
                                                       lock=self.lock,
-                                                      ask_lock_write_value=self.ecs.ask_lock_write_value,
-                                                      ask_lock_ecs=self.ecs.ask_lock_ecs,
                                                       storage_dir=self.storage_dir,
                                                       printer_config=[self.cli, self.log],
                                                       timeout_config=[self.tictac, self.sock_timeout])
+
         client_thread = threading.Thread(target=self.clients_conn[client_id].handle_CONN, args=())
         client_thread.start()
+
+
 
     def check_active_clients(self):
         return sum(value is not None for value in self.clients_conn.values())
@@ -151,9 +152,9 @@ class KVServer:
         message = self.cli + message
         if log == 'd':
             self.log.debug(message)
-        if log == 'i':
+        elif log == 'i':
             self.log.info(message)
-        if log == 'e':
+        elif log == 'e':
             self.log.error(message)
 
     def init_log(self, log_level, log_file, directory):
