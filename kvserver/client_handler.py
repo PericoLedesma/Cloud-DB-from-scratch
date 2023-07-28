@@ -9,6 +9,7 @@ class Client_handler:
                  clients_conn,
                  client_data,
                  ring_structures,
+                 connected_replicas,
                  cache_config,
                  lock,
                  storage_dir,
@@ -23,6 +24,7 @@ class Client_handler:
 
         self.tictac = timeout_config[0]
         self.client_fd.settimeout(timeout_config[1])
+        self.coordinator = False # Storing the type of replica that we are for the coord.
 
         # Some function to ask for data. todo rethink
         self.ask_ring = ring_structures[0]
@@ -30,14 +32,15 @@ class Client_handler:
         self.ask_lock = ring_structures[2]
         self.ask_lock_ecs = ring_structures[3]
 
-
+        # Connection to rep
+        self.connected_replicas = connected_replicas
 
         self.conn_status = True
         self.lock = lock
         self.storage_dir = storage_dir
 
         self.welcome_msg = f'Hi! You are connected to {self.kv_data["name"]}.'
-        self.cli = f'[Handler C{self.client_id}]>' # Todo change name is it is a replica
+        self.cli = f'[Client{self.client_id}]>' # Todo change name is it is a replica
         self.print_cnfig = printer_config
 
         # START
@@ -58,29 +61,41 @@ class Client_handler:
                         if msg is None or msg == " " or not msg:
                             break
                         else:
-                            self.kvprint(f'Message recv: {msg}')
+                            self.kvprint(f'MSG recv: [{msg}]')
                             if len(self.ask_ring()) > 0:
                                 self.handle_RECV(msg, shutdown)
                             elif len(self.ask_ring()) == 0:
+                                self.kvprint(f'MSG sent: server_stopped')
                                 self.handle_RESPONSE('server_stopped')
                 else:
                     self.kvprint(f'No data handle_CONN --> Closing socket', log='e')
                     break
             except socket.timeout:
-                self.kvprint(f'Time out handle_CONN client --> Closing socket', log='e')
-                break
+                if self.coordinator:
+                    self.kvprint(f'Time out handle_CONN coordinator --> Continue', log='e')
+                else:
+                    self.kvprint(f'Time out handle_CONN client --> Closing socket', log='e')
+                    break
             except Exception as e:
-                self.kvprint(f'Exception handle_CONN: {e} --> Closing socket', log='e')
-                break
+                if self.coordinator:
+                    self.kvprint(f'Exception handle_CONN coordinator: {e} --> Closing socket', log='e')
+                    self.kvprint(f'Deleting me as replica of the coordinator..', log='e')
+                    del self.kv_data[self.coordinator]
+                    break
+                else:
+                    self.kvprint(f'Exception handle_CONN client: {e} --> Closing socket', log='e')
+                    break
         self.clients_conn[self.client_id] = None
         self.client_fd.close()
-        self.kvprint(f'Client handler {self.client_id} Stopped')
+        self.kvprint(f'Stopped')
         del self
         exit(0)
 
 
     def handle_RECV(self, msg, shutdown):
         method, *args = msg.split()
+        # self.kvprint(f'HEREEEE method : {method} => *args  {args}')
+
         if shutdown is False:
             if method in ['put', 'delete'] and self.ask_lock() is False:
                 key = args[0]
@@ -99,17 +114,18 @@ class Client_handler:
                     self.handle_REQUEST(method, *args)
             elif method in ['keyrange', 'keyrange_read', 'show', 'close']:
                 self.handle_REQUEST(method, *args)
-            elif method in ['you_are_my_replica']:
+            elif method in ['you_are_my_replica', 'coordinator_order']: # Todo put coordinator_order with get and check with replicas
+                # self.kvprint(f'method : {method} => *args  {args}')
                 self.handle_REQUEST(method, *args)
             else:
-                self.handle_RESPONSE('error unknown command! (shutdown OFF)')
+                self.handle_RESPONSE(f'error unknown command! (shutdown OFF)| Method {repr(method)}')
         elif shutdown:
             if method in ['get', 'show', 'close']:
                 self.handle_REQUEST(method, *args)
             elif method in ['put', 'delete', 'keyrange', 'keyrange_read']:
                 self.handle_RESPONSE('server_stopped')
             else:
-                self.handle_RESPONSE('error unknown command! (shutdown ON)')
+                self.handle_RESPONSE(f'error unknown command! (shutdown ON)| Method {repr(method)}')
 
         if method in ['organise']:
             method, args = args[0], args[1:]
@@ -117,11 +133,18 @@ class Client_handler:
 
 
     def handle_REQUEST(self, request, *args):
+        # self.kvprint(f'Request => [{request}]')
         if request == 'put' and len(args) > 1:
             key, value = args[0], ' '.join(args[1:])
+            self.kvprint(f'NORMAL PUT   [{key}] [{value}]')
             self.cache.put(key, value)
             with self.lock:
                 self.PUT_request(key, value)
+            # Replicas
+
+            for sock, rep in self.connected_replicas.items():
+                # self.kvprint(f'Sending data to REPLICAS123  {rep["type"]} | put |{key} |{value}')
+                self.handle_rep_RESPONSE(rep["sock"], f'{rep["type"]} put {key} {value}')
         elif request == 'get' and len(args) == 1:
             key = args[0]
             if self.cache.get(key):
@@ -162,8 +185,29 @@ class Client_handler:
             self.kvprint(f'Request => close')
             self.conn_status = False
             self.handle_RESPONSE('End connection with client')
-        elif request == 'you_are_my_replica':
-            self.kvprint(f'Request => you_are_my_replica Success')
+        elif request == 'you_are_my_replica': # Todo a check if we are responsable
+            rep_type, interval = args[0], args[1:]
+            self.kvprint(f'Request => you_are_my_replica {rep_type}. Changing promtp {self.cli}> [Coordinator{rep_type}]')
+            self.cli = f'[Coordinator{rep_type}]>' # Todo delete the coordinator when new
+            self.coordinator = rep_type
+            self.kv_data[rep_type] = {
+                "from": interval[0],
+                "to_hash": interval[1]
+            }
+            # self.kvprint(f'My interval as replica {rep_type} stored')
+            # self.kvprint(f'MY DATA')
+            # self.kvprint(self.kv_data)
+            # self.kvprint(f'-------')
+
+        elif request == 'coordinator_order': # Todo a check if we are responsable
+            rep_type, method, key, value = args[0], args[1], args[2], ' '.join(args[3:])
+            self.kvprint(f'Request => coordinator_order to {rep_type} (me) => Request {method} |key {key}, value {value}')
+            self.handle_REQUEST(method, *args)
+            if method == 'put':
+                self.cache.put(key, value) # Cache lock too
+                with self.lock:
+                    self.PUT_request(key, value)
+
         else:  # ERRORS
             if request == 'pass':  # Logic when the
                 pass
@@ -231,8 +275,13 @@ class Client_handler:
             self.handle_RESPONSE(f'delete_error {key}')
 
     def handle_RESPONSE(self, response):
-        self.kvprint(f'Reply sent:{response}')
+        self.kvprint(f'MSG sent:{response}')
         self.client_fd.sendall(bytes(f'{response}\r\n', encoding='utf-8'))
+
+    def handle_rep_RESPONSE(self, sock, response):
+        message = f'coordinator_order {response}'
+        self.kvprint(f'MSG to rep sent:{message}')
+        sock.sendall(bytes(f'{message}\r\n', encoding='utf-8'))
 
     def key_check_coordinators(self, hash):
         # Here we check just coordinators nodes

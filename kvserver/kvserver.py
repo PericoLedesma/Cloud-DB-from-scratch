@@ -113,6 +113,27 @@ class KVServer:
                     self.ecs.send_heartbeat(active=True)
                 else:
                     self.ecs.send_heartbeat(active=False)
+
+                # MY DATA
+                # self.kvprint(f'MY DATA')
+                # self.kvprint(self.kv_data)
+                # self.kvprint(f'-------')
+                # self.kvprint(f"------------------")
+                # self.kvprint(f"All key-value pairs")
+
+
+                # # Storage check
+                # with shelve.open(self.storage_dir, flag='r') as db:
+                #     message = f"\n------------------\n"
+                #     message += f'All key-value pairs\n'
+                #     counter = 1
+                #     for key, value in db.items():
+                #         message += f"Hash {self.hash(key)}==> {key} | {value}\n"
+                #         counter += 1
+                #     message += f"------------------\n"
+                #     return message
+
+
             except Exception as e:
                 self.kvprint(f'Exception listen_to_connections: {e}. Continue')
         self.kvprint(f'Stop listening')
@@ -129,6 +150,7 @@ class KVServer:
         self.clients_conn[client_id] = Client_handler(clients_conn=self.clients_conn,
                                                       client_data=[self.kv_data, client_id, conn, addr],
                                                       ring_structures=[self.ecs.ask_ring, self.ecs.ask_replicas, self.ecs.ask_lock, self.ecs.ask_lock_ecs],
+                                                      connected_replicas=self.ecs.rep.connected_replicas,
                                                       cache_config=[self.c_strg, self.c_size],
                                                       lock=self.lock,
                                                       storage_dir=self.storage_dir,

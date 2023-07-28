@@ -10,7 +10,7 @@ class Replicas_handler:
     def __init__(self, kv_data, storage_dir, ring_structures, printer_config, sock_timeout):
 
         # Printing parameters
-        self.cli = f'[Replicas]>'
+        self.cli = f'[ - Replicas - ]>'
         self.print_cnfig = printer_config
         self.storage_dir = storage_dir
 
@@ -30,58 +30,72 @@ class Replicas_handler:
         self.kvprint(f'Running Replicas handler...')
 
     def update_replicas(self, replicas_list):
-        self.kvprint(f'Updating replicas ....')
-
         # Current replicas
         if self.ring_mine_replicas:
-            self.kvprint(f'We have already replicas')
+            self.kvprint(f'Updating replicas .... We have already replicas')
+            # self.kvprint(f'------')
+            # for key, value in self.ring_mine_replicas.items():
+            #     self.kvprint(f'Mine Replicas already connected {key} {value}')
+            # for key, value in self.connected_replicas.items():
+            #     self.kvprint(f'Connected Replica  {key} {value}')
+            # self.kvprint(f'------')
 
-            old_replicas = self.ring_mine_replicas
-            self.ring_mine_replicas = {}
+            # big todo, if it is connected but type is different
 
             for value in replicas_list:
+
                 if value['from'] == self.kv_data['from'] and value['to_hash'] == self.kv_data['to_hash']:
-                    if self.ring_mine_replicas[value['type']] != value:
-                        # self.close_replica(value['type'])
-                        self.ring_mine_replicas[value['type']] = value
-                        # self.connect_to_replica(value)
+                    # self.kvprint(f'This should be my Replica {value}')
+                    if self.ring_mine_replicas[value['type']]['host'] == value['host'] and self.ring_mine_replicas[value['type']]['port'] == value['port']:
+                        # self.kvprint(f'Replica already connected.')
+                        pass
                     else:
-                        self.kvprint(f'Replica already connected to')
+                        # self.kvprint(f'New replica. Removing previous and connecting to new one. ')
+                        self.close_replica(value)
+                        self.ring_mine_replicas[value['type']] = value
+                        self.connect_to_replica(value)
         else:
-            self.kvprint(f'No previous replicas')
+            self.kvprint(f'Updating replicas .... No previous replicas')
+
             for value in replicas_list:
                 if value['from'] == self.kv_data['from'] and value['to_hash'] == self.kv_data['to_hash']:
+                    # self.kvprint(f'My Replica  {value}')
                     self.ring_mine_replicas[value['type']] = value
-                    # self.connect_to_replica(value)
+                    self.connect_to_replica(value)
 
-        # self.kvprint(f'KVS data')
+        self.kvprint(f'Finish updating replicas.')
+
+
         # self.kvprint(self.kv_data)
         # self.kvprint(f'My replicas data')
+
         # self.kvprint(self.ring_mine_replicas)
 
+        # self.kvprint(f'Checking connection again')
+        #
+        #
+        # self.kvprint(f'My replicas data')
+        # self.kvprint(f'---connected_replicas ----')
+        # for sock, rep in self.connected_replicas.items():
+        #     self.kvprint(f'{rep} - sernding msg ')
+        #     self.handle_REPLY(rep["sock"], f'you_are_my_replica2')
+        # self.kvprint(f'-------')
 
-    def close_replica(self, type):
-        self.kvprint(f'Closing old replica {type}')
-        key = None
-        for sock, rep in self.connected_replicas.items():
-            if rep['type'] is type:
-                sock.close()
-                key = sock
-                break
-        del self.connected_replicas[key]
+
 
 
     def connect_to_replica(self, rep):
         RETRY_INTERVAL = 0.5
         connect_to_try = 0
-        self.kvprint(f'Connecting to replica {rep["host"]}:{rep["port"]} ....')
+        self.kvprint(f'Connecting to replica {rep["type"]} {rep["host"]}:{rep["port"]} ....')
         while True:
             try:
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.connect((rep['host'], rep['port']))
+                sock.connect((rep['host'], int(rep['port'])))
                 addr, port = sock.getsockname()
                 sock.settimeout(self.sock_timeout)
                 self.kvprint(f'Connected to rep {rep["host"]}:{rep["port"]}. Connection addr: {addr}:{port}')
+
                 self.connected_replicas[sock] = {
                     'sock': sock,
                     'addr': addr,
@@ -90,16 +104,36 @@ class Replicas_handler:
                     'host_port': f'{rep["port"]}',
                     'type': rep["type"]
                 }
-                self.handle_json_REPLY(sock, 'you_are_my_replica')
+                self.handle_REPLY(sock, f'you_are_my_replica {rep["type"]} {self.kv_data["from"]}  {self.kv_data["to_hash"]}')
                 break
             except socket.error as e:
                 # self.kvprint(f'Error connecting:{e}. Retrying..')
                 if connect_to_try > 40:
-                    self.kvprint(f'Tried to connect to Replica unsuccessfully ')
+                    self.kvprint(f'Error. Tried to connect to Replica unsuccessfully ')
                     break
                 else:
                     connect_to_try += 1
                     time.sleep(RETRY_INTERVAL)
+        # self.kvprint(f'---connected_replicas ----')
+        # for sock, rep in self.connected_replicas.items():
+        #     self.kvprint(f'{rep}')
+        # self.kvprint(f'-------')
+
+    def close_replica(self, replica):
+        key = None
+        for sock, rep in self.connected_replicas.items():
+            if rep['type'] == replica["type"]:
+                # self.kvprint(f'Closing replica {replica["type"]}| {rep["host"]}')
+                key = sock
+                break
+        try:
+            del self.connected_replicas[key]
+            key.close()
+
+            self.kvprint(f'Closed successfully old replica {replica["type"]}')
+        except Exception as e:
+            self.kvprint(f'Error.Failed deleting replica connection  : {e}. ')
+
 
 
     def handle_CONN(self):
@@ -149,17 +183,18 @@ class Replicas_handler:
         except json.decoder.JSONDecodeError as e:
             self.kvprint(f'Error handling received: {str(e)} |MSG {msg}')
 
-    def handle_REPLY(self,sock,  response):
+    def handle_REPLY(self, sock,  response):
         sock.sendall(bytes(f'{response}\r\n', encoding='utf-8'))
+        self.kvprint(f'MSG sent:{response}')
 
     def handle_json_REPLY(self, sock, request, data=None):
         json_data = json.dumps(self.REPLY_templates(request, data))
         sock.sendall(bytes(f'{json_data}\r\n', encoding='utf-8'))
-        self.kvprint(f'Response sent:{request}')
+        self.kvprint(f'MSG sent:{request}')
 
     def REPLY_templates(self, request, data):
         if request == 'you_are_my_replica':
-            return f' you_are_my_replica'
+            return f'you_are_my_replica'
         elif request == 'you_are_my_replica_put':
             return f'you_are_my_replica_put KEY VALUE'
 

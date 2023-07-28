@@ -74,7 +74,7 @@ if not message:
 #
 # # Add arguments
 # parser.add_argument('-f', '--file', help='Input file path')
-# parser.add_argument('-n', '--number', type=int, help='Number argument')
+# parser.add_argument('-n', '--number', rep_type=int, help='Number argument')
 #
 # # Parse the command-line arguments
 # data = parser.parse_args()

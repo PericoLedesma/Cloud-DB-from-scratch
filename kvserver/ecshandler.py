@@ -102,9 +102,10 @@ class ECS_handler:
                             self.connect_to_ECS()
                         else:
                             try:
+                                # self.kvprint(f'MSG {msg}')
                                 parsedata = json.loads(msg)
                                 request = parsedata.get('request')
-                                self.kvprint(f'{request}')
+                                self.kvprint(f'ECS MSG: {request}')
                                 self.handle_RECV(parsedata, request)
                             except json.decoder.JSONDecodeError as e:
                                 self.kvprint(f'Error handling received: {str(e)} |MSG {msg}')
@@ -130,31 +131,68 @@ class ECS_handler:
     def handle_RECV(self, parsedata, request):
         if request == 'kvserver_data':
             self.handle_json_REPLY(request)
-        elif request == 'ring_metadata':
+        elif 'ring_metadata' in request:
             if self.shutdown is False:
+                self.kvprint(f'Updating Ring ... Extracting coordinators and replicas...')
                 self.write_lock = True
-                self.complete_ring = parsedata.get('data', {})
+
+                # Storing data
+                self.complete_ring = []
                 self.ring_metadata = {}
                 self.ring_replicas = []
-                for value in self.complete_ring:
-                    if value['type'] == 'C':
-                        self.ring_metadata[value['to_hash']] = value
-                        if value['host'] == self.kv_data['host'] and value['port'] == self.kv_data['port']:
-                            self.kv_data['to_hash'] = str(value['to_hash'])
-                            self.kv_data['from'] = str(value['from'])
-                    else:
-                        self.ring_replicas.append(value)
 
-                # if self.ring_replicas:
-                #     self.rep.update_replicas(self.ring_replicas)
-                self.write_lock = False
-                # self.kvprint(f'--------------ring_replicas--------')
-                # for values in self.ring_replicas:
+                data = parsedata.get('data', {})
+                for item in data:
+                    self.complete_ring.append({
+                        'from': str(item["from"]),
+                        'to_hash': str(item["to_hash"]),
+                        'host': str(item["host"]),
+                        'port': str(item["port"]),
+                        'type': str(item["type"]),
+                    })
+                    if item['type'] == 'C':
+                        self.ring_metadata[item['to_hash']] = {
+                            'from': str(item["from"]),
+                            'to_hash': str(item["to_hash"]),
+                            'host': str(item["host"]),
+                            'port': str(item["port"]),
+                            'type': str(item["type"]),
+                        }
+                        if item['host'] == self.kv_data['host'] and item['port'] == self.kv_data['port']:
+                            self.kv_data['to_hash'] = str(item['to_hash'])
+                            self.kv_data['from'] = str(item['from'])
+                    else:
+                        self.ring_replicas.append({
+                            'from': str(item["from"]),
+                            'to_hash': str(item["to_hash"]),
+                            'host': str(item["host"]),
+                            'port': str(item["port"]),
+                            'type': str(item["type"]),
+                        })
+
+                # self.kvprint(f'--------------complete_ring--------')
+                # for values in self.complete_ring:
                 #     self.kvprint(values)
+                #
                 # self.kvprint(f'--------------ring_metadata--------')
                 # for key, values in self.ring_metadata.items():
                 #     self.kvprint(key,'|', values)
-                self.kvprint(f'Updated ring. Number of kv_servers: {len(self.ring_metadata)}')
+                #
+                # self.kvprint(f'--------------ring_replicas--------')
+                # for values in self.ring_replicas:
+                #     self.kvprint(values)
+
+                self.kvprint(f'Ring data extracted. C = {len(self.ring_metadata)} | R = {len(self.ring_replicas)}')
+                if self.ring_replicas:
+                    self.kvprint(f'Updating my replicas ...')
+                    self.rep.update_replicas(self.ring_replicas)
+                else:
+                    self.kvprint(f'No replicas. Closing connections in case of before having rep..(TODO)')
+                    #Todo delete my store of other replicas
+                    # Close connections with my replicas
+
+                self.kvprint(f'Updated ring. Number of nodes: {len(self.ring_metadata)}')
+                self.write_lock = False
 
             else:
                 self.kvprint(f'Shutdown in process. Ring not updated')
@@ -168,7 +206,7 @@ class ECS_handler:
         elif request == 'arrange_ring':
             data = parsedata.get('data', {})
             if data is not None:
-                self.kvprint(f'arrange_ring  -> send_data_to_reponsable')
+                self.kvprint(f'Init send_data_to_reponsable thread...')
                 thread = threading.Thread(target=self.send_data_to_reponsable, args=(data,))
                 thread.start()
             else:
@@ -177,7 +215,7 @@ class ECS_handler:
                     self.handle_json_REPLY('kvserver_shutdown')
                     self.closing_all()
         else:
-            self.kvprint(f'error unknown command!')
+            self.kvprint(f'error unknown command! -> {request}')
 
 
     def handle_REPLY(self, response):
@@ -239,6 +277,7 @@ class ECS_handler:
         message = ' '.join(str(arg) for arg in args)
         message = self.cli + message
         # message = self.print_cnfig[0] + self.cli + message
+
         if log == 'd':
             self.print_cnfig[1].debug(message)
         elif log == 'i':
@@ -257,12 +296,14 @@ class ECS_handler:
         self.handle_json_REPLY('ring_metadata')
 
     def send_data_to_reponsable(self, data):
+        cli = '[send_data_to_reponsable]'
         with shelve.open(self.storage_dir, writeback=True) as db:
             # Check if the database is empty
             if not list(db.keys()):
+                self.kvprint(f'{cli}Empty database. Nothing to send.')
                 return  # TODO check if we store everything or sometimes just in cache
 
-        self.kvprint(f'--->     Sending data to KVSERVER responsable    <-----')
+        self.kvprint(f'{cli}--->     Sending data to KVSERVER responsable    <-----')
 
         low_hash, up_hash = str(data['interval'][0]), str(data['interval'][1])  # TODO when ahsh back to normal
         low_hash = int(low_hash, 16)
@@ -278,14 +319,14 @@ class ECS_handler:
 
         RETRY_INTERVAL = 0.5
         connecting_try = 0
-        self.kvprint(f'Connecting to KVserver responsable {addr}:{port}....')
+        self.kvprint(f'{cli}Connecting to KVserver responsable {addr}:{port}....')
         while True:
             try:
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 sock.connect((addr, port))
-                self.kvprint(f'Connected to KVserver [{addr}:{port}].')
+                self.kvprint(f'{cli}Connected to KVserver [{addr}:{port}].')
                 # Todo something with the first msg so the other kvserver knows he is a kvserer
-                sock.sendall(bytes(f'This is {self.kv_data["name"]} rearranging data.\r\n', encoding='utf-8'))
+                sock.sendall(bytes(f'{self.kv_data["name"]} This is {self.kv_data["name"]} rearranging data.\r\n', encoding='utf-8'))
                 # Get the local address
                 # print('OLALA') # todo
                 # print(sock.getsockname())
@@ -294,13 +335,13 @@ class ECS_handler:
                 break
             except:
                 if connecting_try > 20:
-                    self.kvprint(f'Tried to connect to KVSERVER unsuccessfully. Data not sent.  ')
+                    self.kvprint(f'{cli}Tried to connect to KVSERVER unsuccessfully. Data not sent.  ')
                     break
                 else:
                     connecting_try += 1
                     time.sleep(RETRY_INTERVAL)
 
-        self.kvprint(f'Starting sending data... ')
+        self.kvprint(f'{cli}Starting sending data... ')
         if up_hash > low_hash:
             with shelve.open(self.storage_dir, writeback=True) as db:
                 for key, value in db.items():  # Todo have a follow of which one are correctly traspased
@@ -336,21 +377,23 @@ class ECS_handler:
                         if msg is None or msg == " " or not msg:
                             break
                         elif msg == 'organise received':
-                            self.kvprint(f'Arranging data completed successfully ', msg)
+                            self.kvprint(f'{cli}Arranging data completed successfully ', msg)
                             break
                         else:
-                            self.kvprint(f'Arranging data back msg: ', msg)
+                            self.kvprint(f'{cli}Arranging data back msg: ', msg)
                 else:
-                    self.kvprint(f'Arranging data.No data. --> Closing socket')
+                    self.kvprint(f'{cli}Arranging data.No data. --> Closing socket')
                     break
             except Exception as e:
-                self.kvprint(f'Exception handle_CONN: {e}')
+                self.kvprint(f'{cli}Exception handle_CONN: {e}')
                 break
-        self.kvprint(f'Successfully rearrange data. Closing kv-kv socket')
+        self.kvprint(f'{cli}Successfully rearrange data. Closing kv-kv socket')
         sock.close()
 
         if self.shutdown:
+            self.kvprint(f'{cli}MSG send: kvserver_shutdown ')
             self.handle_json_REPLY('kvserver_shutdown')
+            self.kvprint(f'{cli} self.closing_all()')
             self.closing_all()
 
     def closing_all(self):

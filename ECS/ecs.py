@@ -129,7 +129,7 @@ class ECS:
             self.ecsprint(f'++ New kvserver{id} saved!, Current ids:{list(self.kvs_data)}')
             self.ecsprint(
                 f'Num. KVS con.[{len(self.kvs_connected.keys())}]|Num. Ring nodes:{len(self.hash_class.ring_coordinators)}')
-            self.broadcast('ring_metadata')
+            self.broadcast('ring_metadata', f'-> trigger {request}')
         elif request == 'heartbeat':
             id = self.kv_id(sock)
             data = parsedata.get('data', {})
@@ -137,14 +137,14 @@ class ECS:
                 self.kvs_data[id]['active'] = time.time()
                 self.heartbeat()
         elif request == 'ring_metadata':
-            self.broadcast('ring_metadata')
+            self.broadcast('ring_metadata', f'-> trigger {request}')
         elif request == 'starting_shutdown_process':
             data = parsedata.get('data', {})
             if data['id'] in self.kvs_data.keys():
                 if self.shuttingdown_kvservers is None or self.shuttingdown_kvservers == []:
                     self.broadcast('write_lock_act')
                     self.hash_class.remove_node(self.kvs_data, data['id'], sock, self.handle_json_REPLY)
-                    self.broadcast('ring_metadata')
+                    self.broadcast('ring_metadata', f'-> trigger {request}')
                     self.shuttingdown_kvservers.append(data['id'])
                 else:
                     self.shutting_down_queue.append((data['id'], sock))
@@ -163,10 +163,10 @@ class ECS:
         else:
             self.ecsprint(f'error unknown command!')
 
-    def broadcast(self, request):
-        self.ecsprint(f'Broadcasting {request}')
+    def broadcast(self, request, data=None):
+        self.ecsprint(f'Broadcasting {request} {data}')
         for sock in self.kvs_connected:
-            self.handle_json_REPLY(sock, request)
+            self.handle_json_REPLY(sock, request, data)
 
     def handle_REPLY(self, response, sock):
         self.ecsprint(f'Normal Message sent: {response}')
@@ -211,7 +211,7 @@ class ECS:
             }
         elif request == 'ring_metadata':
             return {
-                'request': 'ring_metadata',
+                'request': f'{request} {data}',
                 'data': self.hash_class.complete_ring
             }
         elif request == 'write_lock_act':
