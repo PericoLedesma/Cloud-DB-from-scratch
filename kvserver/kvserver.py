@@ -17,7 +17,7 @@ class KVServer:
         # Server parameters
         # self.id = id
         self.id = addr[-1]
-        # self.id = str(port)[-1]
+        self.id = str(port)[-1]
         self.name = f'KV{self.id}'
 
         # Time parameters

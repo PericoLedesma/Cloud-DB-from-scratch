@@ -7,7 +7,7 @@ import time
 
 
 class Replicas_handler:
-    def __init__(self, kv_data, storage_dir, ring_structures, printer_config, sock_timeout):
+    def __init__(self, kv_data, storage_dir, ring_mine_replicas, printer_config, sock_timeout):
 
         # Printing parameters
         self.cli = f'[ - Replicas - ]>'
@@ -20,8 +20,7 @@ class Replicas_handler:
         self.connected_replicas = {}
 
         # Some function to ask for data. todo rethink
-        self.ask_ring = ring_structures[0]
-        self.ask_lock_write_value = ring_structures[1]
+        self.ring_mine_replicas = ring_mine_replicas
         # self.ask_lock_ecs = ring_structures[2]
 
         # Timeout and heartbeat parameters

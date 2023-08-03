@@ -27,6 +27,7 @@ class ECS_handler:
         # Ring metadata
         self.ring_metadata = {}
         self.ring_replicas = []
+        self.ring_mine_replicas = []
         self.complete_ring = {}
 
         # Lock write parameter. While server starting locked
@@ -45,7 +46,7 @@ class ECS_handler:
         # ECS handler thread starter
         self.rep = Replicas_handler(kv_data,
                                     storage_dir,
-                                    [self.ask_ring, self.ask_lock],
+                                    self.ring_mine_replicas,
                                     printer_config,
                                     sock_timeout)
 
@@ -196,12 +197,12 @@ class ECS_handler:
 
             else:
                 self.kvprint(f'Shutdown in process. Ring not updated')
-        elif request == 'write_lock_act':
+        elif 'write_lock_act' in request:
             self.write_lock = True
         elif request == 'write_lock_deact':
             self.write_lock = False
             self.kvprint(f'LOCK OFF')
-        elif request == 'shutdown_kvserver':
+        elif request == 'shutdown_kvserver' or request == 'shutdown_ecs':
             self.closing_all()
         elif request == 'arrange_ring':
             data = parsedata.get('data', {})
@@ -289,6 +290,8 @@ class ECS_handler:
         return self.ring_metadata
     def ask_replicas(self):  # For the client handler to get the ring
         return self.rep.ring_mine_replicas
+
+
     def ask_lock(self):  # For the client too
         return self.write_lock
 
@@ -380,7 +383,7 @@ class ECS_handler:
                             self.kvprint(f'{cli}Arranging data completed successfully ', msg)
                             break
                         else:
-                            self.kvprint(f'{cli}Arranging data back msg: ', msg)
+                            self.kvprint(f'{cli}Back msg: ', msg)
                 else:
                     self.kvprint(f'{cli}Arranging data.No data. --> Closing socket')
                     break

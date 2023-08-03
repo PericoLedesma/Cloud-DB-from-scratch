@@ -15,7 +15,7 @@ class ConsistentHashing:
             # md5_hash = int(md5_hash[:3], 16) #todo CAREFUL
             return md5_hash  # For testing, just take one byte. Easier to check
         else:
-            raise Exception('Error in hash. Not getting all the character. Error when sorting probably')
+            raise Exception('Ring > Error in hash. Not getting all the character. Error when sorting probably')
 
     def update_ring_intervals(self):
         self.ecsprint(f'Ring > Updating the ring. Num nodes: {len(self.ring_coordinators)}')
@@ -48,23 +48,21 @@ class ConsistentHashing:
                                                'type': 'R2'})
                     replica2 = replica1
                     replica1 = key
+                if len(list(self.ring_coordinators.values())) == (len(self.ring_replicas) / 2):
+                    self.ecsprint(
+                        f'Ring > Successfully created replicas |C = {len(list(self.ring_coordinators.values()))}/ R = {len(self.ring_replicas)}')
+                else:
+                    self.ecsprint(
+                        f'Ring > Error C*2!=R |C = {len(list(self.ring_coordinators.values()))}/ R = {len(self.ring_replicas)}')
             else:
-                self.ecsprint(f'No replica nodes.')
-
-            if len(list(self.ring_coordinators.values())) == (len(self.ring_replicas)/2):
-                self.ecsprint(f'Successfully created replicas |C = {len(list(self.ring_coordinators.values()))}/ R = {len(self.ring_replicas)}')
-            elif len(list(self.ring_coordinators.values())) != (len(self.ring_replicas)/2):
-                self.ecsprint(f'Error C*2!=R |C = {len(list(self.ring_coordinators.values()))}/ R = {len(self.ring_replicas)}')
-            else:
-                self.ecsprint(f'Error check rewrwr')
-
+                self.ecsprint(f'Ring > No replica nodes.')
 
             self.complete_ring = list(self.ring_coordinators.values()) + self.ring_replicas
             # self.ecsprint('--------------complete_ring--------')
             # for values in self.complete_ring:
             #     self.ecsprint(values)
         else:
-            self.ecsprint(f'No nodes. Ring not updated.')
+            self.ecsprint(f'Ring > No nodes. Ring not updated.')
 
     def new_node(self, kvs_data, id, handle_json_REPLY):
         self.ecsprint(f'Ring > ++ Adding new node')

@@ -44,9 +44,7 @@ docker build -t gitlab.lrz.de:5005/cdb-23/gr4/ms3/ecs-server .
 docker push gitlab.lrz.de:5005/cdb-23/gr4/ms3/ecs-server
 
 ### MS4
-docker build -t gitlab.lrz.de:5005/cdb-23/gr4/ms4/kv-server .
-docker push gitlab.lrz.de:5005/cdb-23/gr4/ms4/kv-server
-
+,
 docker build -t gitlab.lrz.de:5005/cdb-23/gr4/ms4/ecs-server .
 docker push gitlab.lrz.de:5005/cdb-23/gr4/ms4/ecs-server
 

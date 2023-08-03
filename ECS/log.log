@@ -1,0 +1,43 @@
+2023-08-03 23:54:07,277 - DEBUG - ------------------------------------------------------------
+2023-08-03 23:54:07,277 - DEBUG -                     ECS server on port 0.0.0.0:5002 
+2023-08-03 23:54:07,277 - DEBUG - ------------------------------------------------------------
+2023-08-03 23:54:07,277 - DEBUG - Listening to KVServers at 0.0.0.0:5002
+2023-08-03 23:54:08,681 - DEBUG - ++ New socket connected: ('127.0.0.1', 60830). Waiting to receive KVS data...
+2023-08-03 23:54:08,681 - DEBUG - 	Received message from KVSNone: kvserver_data
+2023-08-03 23:54:08,681 - DEBUG - Broadcasting write_lock_act -> trigger kvserver_data
+2023-08-03 23:54:08,682 - DEBUG - Ring > ++ Adding new node
+2023-08-03 23:54:08,682 - DEBUG - Ring > Updating the ring. Num nodes: 1
+2023-08-03 23:54:08,682 - DEBUG - Ring > No replica nodes.
+2023-08-03 23:54:08,682 - DEBUG - ++ New kvserver8 saved!, Current ids:['8']
+2023-08-03 23:54:08,682 - DEBUG - Num. KVS con.[1]|Num. Ring nodes:1
+2023-08-03 23:54:08,682 - DEBUG - Broadcasting ring_metadata -> trigger kvserver_data
+2023-08-03 23:54:14,534 - DEBUG - ++ New socket connected: ('127.0.0.1', 60841). Waiting to receive KVS data...
+2023-08-03 23:54:14,534 - DEBUG - 	Received message from KVSNone: kvserver_data
+2023-08-03 23:54:14,534 - DEBUG - Broadcasting write_lock_act -> trigger kvserver_data
+2023-08-03 23:54:14,534 - DEBUG - Ring > ++ Adding new node
+2023-08-03 23:54:14,534 - DEBUG - Ring > Updating the ring. Num nodes: 2
+2023-08-03 23:54:14,534 - DEBUG - Ring > No replica nodes.
+2023-08-03 23:54:14,534 - DEBUG - MSG sent to 8(SIZE 159/131072): arrange_ring
+2023-08-03 23:54:14,535 - DEBUG - ++ New kvserver9 saved!, Current ids:['8', '9']
+2023-08-03 23:54:14,535 - DEBUG - Num. KVS con.[2]|Num. Ring nodes:2
+2023-08-03 23:54:14,535 - DEBUG - Broadcasting ring_metadata -> trigger kvserver_data
+2023-08-03 23:54:16,841 - DEBUG - ++ New socket connected: ('127.0.0.1', 60844). Waiting to receive KVS data...
+2023-08-03 23:54:16,842 - DEBUG - 	Received message from KVSNone: kvserver_data
+2023-08-03 23:54:16,842 - DEBUG - Broadcasting write_lock_act -> trigger kvserver_data
+2023-08-03 23:54:16,842 - DEBUG - Ring > ++ Adding new node
+2023-08-03 23:54:16,842 - DEBUG - Ring > Updating the ring. Num nodes: 3
+2023-08-03 23:54:16,842 - DEBUG - 		 C 2021d84d21992a361000ee1cf145ce7a| R1 5769cceb3d717a9944471cd12f7430c3 | R2 426161bcac2bd231d53693e2e0addc5d
+2023-08-03 23:54:16,842 - DEBUG - 		 C 426161bcac2bd231d53693e2e0addc5d| R1 2021d84d21992a361000ee1cf145ce7a | R2 5769cceb3d717a9944471cd12f7430c3
+2023-08-03 23:54:16,842 - DEBUG - 		 C 5769cceb3d717a9944471cd12f7430c3| R1 426161bcac2bd231d53693e2e0addc5d | R2 2021d84d21992a361000ee1cf145ce7a
+2023-08-03 23:54:16,842 - DEBUG - Ring > Successfully created replicas |C = 3/ R = 6
+2023-08-03 23:54:16,842 - DEBUG - MSG sent to 8(SIZE 159/131072): arrange_ring
+2023-08-03 23:54:16,842 - DEBUG - ++ New kvserver7 saved!, Current ids:['8', '9', '7']
+2023-08-03 23:54:16,842 - DEBUG - Num. KVS con.[3]|Num. Ring nodes:3
+2023-08-03 23:54:16,842 - DEBUG - Broadcasting ring_metadata -> trigger kvserver_data
+2023-08-03 23:59:18,622 - DEBUG - Broadcasting shutdown_ecs None
+2023-08-03 23:59:18,624 - DEBUG - MSG sent to 8(SIZE 29/131072): shutdown_ecs
+2023-08-03 23:59:18,624 - DEBUG - MSG sent to 9(SIZE 29/131072): shutdown_ecs
+2023-08-03 23:59:18,624 - DEBUG - MSG sent to 7(SIZE 29/131072): shutdown_ecs
+2023-08-03 23:59:18,625 - DEBUG - ------------------------------------------------------------
+2023-08-03 23:59:18,625 - DEBUG -                     Stopping ECS
+2023-08-03 23:59:18,625 - DEBUG - ------------------------------------------------------------

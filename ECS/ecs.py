@@ -113,7 +113,7 @@ class ECS:
             self.ecsprint(f'\tReceived message from KVS{self.kv_id(sock)}: {request}')
         # REQUESTS
         if request == 'kvserver_data':  # New kvserver sending personal data
-            self.broadcast('write_lock_act')
+            self.broadcast('write_lock_act', f'-> trigger {request}')
             data = parsedata.get('data', {})
             id = data.get('id')
             # Storing data
@@ -142,7 +142,7 @@ class ECS:
             data = parsedata.get('data', {})
             if data['id'] in self.kvs_data.keys():
                 if self.shuttingdown_kvservers is None or self.shuttingdown_kvservers == []:
-                    self.broadcast('write_lock_act')
+                    self.broadcast('write_lock_act', f'-> trigger {request}')
                     self.hash_class.remove_node(self.kvs_data, data['id'], sock, self.handle_json_REPLY)
                     self.broadcast('ring_metadata', f'-> trigger {request}')
                     self.shuttingdown_kvservers.append(data['id'])
@@ -216,7 +216,7 @@ class ECS:
             }
         elif request == 'write_lock_act':
             return {
-                'request': request
+                'request': f'{request} {data}',
             }
         elif request == 'write_lock_deact':
             return {
