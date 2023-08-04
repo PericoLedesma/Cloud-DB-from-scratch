@@ -9,6 +9,10 @@ import argparse
 import logging
 import select
 
+import datetime
+
+
+
 os.system('cls' if os.name == 'nt' else 'clear')
 
 
@@ -17,7 +21,7 @@ class KVServer:
         # Server parameters
         # self.id = id
         self.id = addr[-1]
-        self.id = str(port)[-1]
+        # self.id = str(port)[-1]
         self.name = f'KV{self.id}'
 
         # Time parameters
@@ -40,6 +44,7 @@ class KVServer:
         self.ring_metadata = {}
         self.ring_replicas = []
         self.ring_mine_replicas = {}
+        self.i_am_replica_of = {}
         self.complete_ring = {}
 
         # To turn of the ecs handler and the thread
@@ -54,8 +59,6 @@ class KVServer:
 
         # So threads doesnt enter same time to the put process
         self.lock = threading.Lock()
-
-
 
         # Cache
         self.c_strg = cache_strategy
@@ -185,12 +188,16 @@ class KVServer:
     def kvprint(self, *args, log='d'):
         message = ' '.join(str(arg) for arg in args)
         message = self.cli + message
+        # formatted_time = datetime.datetime.now().strftime("%H:%M:%S")
+        # message = f'[{formatted_time}] {self.cli} {message}'
+
         if log == 'd':
             self.log.debug(message)
         elif log == 'i':
             self.log.info(message)
         elif log == 'e':
             self.log.error(message)
+
 
     def init_log(self, log_level, log_file, directory):
         if directory == '.':
@@ -256,5 +263,4 @@ def main():
 if __name__ == '__main__':
     main()
 
-# python kvserver.py -i 0 -p 4001 -b 127.0.0.1:8000
-# python kvserver.py -i 1 -p 4002 -b 127.0.0.1:8000
+

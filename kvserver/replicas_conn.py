@@ -1,13 +1,12 @@
 import socket
 import json
-import shelve
 import time
 
 
 class Replicas_handler:
     def __init__(self, ecshandler, kvserver):
         self.ecsh = ecshandler
-        self.kvserver = kvserver
+        self.kvs = kvserver
 
         # Printing parameters
         self.cli = f'[ - Replicas - ]>'
@@ -18,58 +17,39 @@ class Replicas_handler:
         self.kvprint(f'Running Replicas handler...')
 
     def update_replicas(self):
-        # Current replicas
-        if self.kvserver.ring_mine_replicas:
+        if self.kvs.ring_mine_replicas:
             self.kvprint(f'Updating replicas .... We have already replicas')
-            # self.kvprint(f'------')
-            # for key, value in self.kvserver.ring_mine_replicas.items():
-            #     self.kvprint(f'Mine Replicas already connected {key} {value}')
-            # for key, value in self.connected_replicas.items():
-            #     self.kvprint(f'Connected Replica  {key} {value}')
-            # self.kvprint(f'------')
+            self.kvs.i_am_replica_of = {}
 
             # big todo, if it is connected but type is different
 
-            for value in self.kvserver.ring_replicas:
-
-                if value['from'] == self.kvserver.kv_data['from'] and value['to_hash'] == self.kvserver.kv_data['to_hash']:
-                    # self.kvprint(f'This should be my Replica {value}')
-                    if self.kvserver.ring_mine_replicas[value['type']]['host'] == value['host'] and self.kvserver.ring_mine_replicas[value['type']]['port'] == value['port']:
-                        # self.kvprint(f'Replica already connected.')
+            for value in self.kvs.ring_replicas:
+                if value['from'] == self.kvs.kv_data['from'] and value['to_hash'] == self.kvs.kv_data['to_hash']:
+                    if self.kvs.ring_mine_replicas[value['type']]['host'] == value['host'] and self.kvs.ring_mine_replicas[value['type']]['port'] == value['port']:
                         pass
                     else:
-                        # self.kvprint(f'New replica. Removing previous and connecting to new one. ')
                         self.close_replica(value)
-                        self.kvserver.ring_mine_replicas[value['type']] = value
+                        self.kvs.ring_mine_replicas[value['type']] = value
                         self.connect_to_replica(value)
+                elif value['host'] == self.kvs.kv_data['host'] and int(value['port']) == int(self.kvs.kv_data['port']):
+                    self.kvs.i_am_replica_of[value['type']] = value
+                else:
+                    pass
         else:
-            self.kvprint(f'Updating replicas .... No previous replicas')
 
-            for value in self.kvserver.ring_replicas:
-                if value['from'] == self.kvserver.kv_data['from'] and value['to_hash'] == self.kvserver.kv_data['to_hash']:
-                    # self.kvprint(f'My Replica  {value}')
-                    self.kvserver.ring_mine_replicas[value['type']] = value
+            self.kvprint(f'Updating replicas .... No previous replicas')
+            for value in self.kvs.ring_replicas:
+                if value['from'] == self.kvs.kv_data['from'] and value['to_hash'] == self.kvs.kv_data['to_hash']:
+                    self.kvs.ring_mine_replicas[value['type']] = value
                     self.connect_to_replica(value)
+                elif value['host'] == self.kvs.kv_data['host'] and int(value['port']) == int(self.kvs.kv_data['port']):
+                    self.kvs.i_am_replica_of[value['type']] = value
+                else:
+                    pass
 
         self.kvprint(f'Finish updating replicas.')
-
-
-        # self.kvprint(self.kvserver.kv_data)
-        # self.kvprint(f'My replicas data')
-
-        # self.kvprint(self.kvserver.ring_mine_replicas)
-
-        # self.kvprint(f'Checking connection again')
-        #
-        #
-        # self.kvprint(f'My replicas data')
-        # self.kvprint(f'---connected_replicas ----')
-        # for sock, rep in self.connected_replicas.items():
-        #     self.kvprint(f'{rep} - sernding msg ')
-        #     self.handle_REPLY(rep["sock"], f'you_are_my_replica2')
-        # self.kvprint(f'-------')
-
-
+        if self.kvs.i_am_replica_of is None or self.kvs.i_am_replica_of == {}:
+            raise Exception("Error update_replicas. I am not a replica of anyone.")
 
 
     def connect_to_replica(self, rep):
@@ -81,7 +61,7 @@ class Replicas_handler:
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 sock.connect((rep['host'], int(rep['port'])))
                 addr, port = sock.getsockname()
-                sock.settimeout(self.kvserver.sock_timeout)
+                sock.settimeout(self.kvs.sock_timeout)
                 self.kvprint(f'Connected to rep {rep["host"]}:{rep["port"]}. Connection addr: {addr}:{port}')
 
                 self.connected_replicas[sock] = {
@@ -92,7 +72,7 @@ class Replicas_handler:
                     'host_port': f'{rep["port"]}',
                     'type': rep["type"]
                 }
-                self.handle_REPLY(sock, f'you_are_my_replica {rep["type"]} {self.kvserver.kv_data["from"]}  {self.kvserver.kv_data["to_hash"]}')
+                self.handle_REPLY(sock, f'you_are_my_replica {rep["type"]} {self.kvs.kv_data["from"]}  {self.kvs.kv_data["to_hash"]}')
                 break
             except socket.error as e:
                 # self.kvprint(f'Error connecting:{e}. Retrying..')
@@ -102,10 +82,6 @@ class Replicas_handler:
                 else:
                     connect_to_try += 1
                     time.sleep(RETRY_INTERVAL)
-        # self.kvprint(f'---connected_replicas ----')
-        # for sock, rep in self.connected_replicas.items():
-        #     self.kvprint(f'{rep}')
-        # self.kvprint(f'-------')
 
     def close_replica(self, replica):
         key = None
@@ -123,53 +99,6 @@ class Replicas_handler:
             self.kvprint(f'Error.Failed deleting replica connection  : {e}. ')
 
 
-
-    def handle_CONN(self):
-        while True:
-            try:
-                data = self.sock.recv(128 * 1024).decode()
-                if data:
-                    messages = data.replace('\\r\\n', '\r\n').split('\r\n')
-                    for msg in messages:
-                        if msg is None or msg == " " or not msg:
-                            break
-                        elif msg == 'null':
-                            self.kvprint(f'handle_RECV --> null. Reconnecting')
-                            self.connect_to_ECS()
-                        else:
-                            self.handle_RECV(msg)
-                else:
-                    self.kvprint(f'No data. --> Reconnecting')
-                    self.connect_to_ECS()
-                    break
-            except socket.timeout:
-                # self.kvprint(f'Time out handle_CONN --> Continue', log='e')
-                pass
-            except Exception as e:
-                self.kvprint(f'Exception handle_CONN: {e} --> Continue')
-                continue
-        self.kvprint(f'Exiting handle_CONN with replicas ...| {self.ecs_connected}')
-        self.sock.close()
-        self.kvprint(f'{"-" * 60}')
-        self.kvprint(f'{" " * 20}Replicas Handler Stopped')
-        self.kvprint(f'{"-" * 60}')
-        del self
-        exit(0)
-
-    def handle_RECV(self, msg):
-        try:
-            parsedata = json.loads(msg)
-            request = parsedata.get('request')
-            self.kvprint(f'Received message: {request}')
-            # REQUESTS
-            if request == 'kvserver_data':
-                self.handle_json_REPLY(request)
-
-            else:
-                self.kvprint(f'error unknown command!')
-
-        except json.decoder.JSONDecodeError as e:
-            self.kvprint(f'Error handling received: {str(e)} |MSG {msg}')
 
     def handle_REPLY(self, sock,  response):
         sock.sendall(bytes(f'{response}\r\n', encoding='utf-8'))
@@ -197,10 +126,10 @@ class Replicas_handler:
     def kvprint(self, *args, log='d'):
         message = ' '.join(str(arg) for arg in args)
         message = self.cli + message
-        # message = self.kvserver.cli + self.cli + message
+        # message = self.kvs.cli + self.cli + message
         if log == 'd':
-            self.kvserver.log.debug(message)
+            self.kvs.log.debug(message)
         elif log == 'i':
-            self.kvserver.log.info(message)
+            self.kvs.log.info(message)
         elif log == 'e':
-            self.kvserver.log.error(message)
+            self.kvs.log.error(message)

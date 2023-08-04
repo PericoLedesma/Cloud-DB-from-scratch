@@ -1,5 +1,4 @@
 from hashing_class import *
-import subprocess
 import time
 import argparse
 import socket
@@ -69,10 +68,10 @@ class ECS:
                             if data:
                                 self.handle_RECV(data, sock)
                             else:
-                                self.ecsprint(f'Error. No data --> Closing socket KVS{self.kv_id(sock)}', log='e')
+                                # self.ecsprint(f'Error. No data --> Closing socket KVS{self.kv_id(sock)}', log='e')
                                 self.closing_kvserver(sock)
                         except Exception as e:
-                            self.ecsprint(f'Exception recv: {e} --> Closing socket', log='e')
+                            # self.ecsprint(f'Exception recv: {e} --> Closing socket', log='e')
                             self.closing_kvserver(sock)
 
                 if self.shutting_down_queue and self.shuttingdown_kvservers == []:
@@ -258,14 +257,14 @@ class ECS:
 
     def closing_kvserver(self, sock):  # Closing without backup process
         id = self.kv_id(sock)
-        self.ecsprint(f'Removing KVS{id}... ')
+        # self.ecsprint(f'Removing KVS{id}... ')
         try:
             del self.kvs_connected[sock]
         except:
             self.ecsprint(f'Error. Check, deleted socket not in connected socket')
 
         if self.kvs_data[id]['to_hash'] in self.hash_class.ring_coordinators:
-            self.ecsprint(f'KVS{id} in coordinator ring. Removing it')
+            # self.ecsprint(f'KVS{id} in coordinator ring. Removing it')
             self.broadcast('write_lock_act')
             del self.hash_class.ring_coordinators[self.kvs_data[id]['to_hash']]
             self.hash_class.update_ring_intervals()
@@ -278,13 +277,14 @@ class ECS:
     def ecsprint(self, *args, log='d'):
         message = ' '.join(str(arg) for arg in args)
         # message = self.cli + message
-        message = message
+        # message = message
         if log == 'd':
             self.log.debug(message)
-        if log == 'i':
-            self.log.info(message)
-        if log == 'e':
+        elif log == 'e':
             self.log.error(message)
+        elif log == 'i':
+            self.log.info(message)
+
 
     def init_log(self, log_level, log_file, directory):
         if directory == '.':

@@ -1,5 +1,4 @@
 from replicas_conn import *
-from client_handler import *
 
 import socket
 import time
@@ -7,6 +6,7 @@ import json
 import shelve
 import threading
 import hashlib
+import datetime
 
 
 class ECS_handler:
@@ -151,26 +151,19 @@ class ECS_handler:
                             'type': str(item["type"]),
                         })
 
-                # self.kvprint(f'--------------complete_ring--------')
-                # for values in self.kvs.complete_ring:
-                #     self.kvprint(values)
-                #
-                # self.kvprint(f'--------------ring_metadata--------')
-                # for key, values in self.kvs.ring_metadata.items():
-                #     self.kvprint(key,'|', values)
-                #
-                # self.kvprint(f'--------------ring_replicas--------')
-                # for values in self.kvs.ring_replicas:
-                #     self.kvprint(values)
-
                 self.kvprint(f'Ring data extracted. C = {len(self.kvs.ring_metadata)} | R = {len(self.kvs.ring_replicas)}')
                 if self.kvs.ring_replicas:
                     self.kvprint(f'Updating my replicas ...')
                     self.rep.update_replicas()
                 else:
-                    self.kvprint(f'No replicas. Closing connections in case of before having rep..(TODO)')
-                    #Todo delete my store of other replicas
-                    # Close connections with my replicas
+                    self.kvprint(f'No replicas. Closing connections in case of before having rep..')
+                    self.kvs.i_am_replica_of = {}
+                    self.kvs.ring_mine_replicas = {}
+                    # if self.rep.connected_replicas:
+                    #     for sock, replica in self.rep.connected_replicas.items():
+                    #         sock.close()
+                    #     self.rep.connected_replicas = {}
+
 
                 self.kvprint(f'Updated ring. Number of nodes: {len(self.kvs.ring_metadata)}')
                 self.kvs.write_lock = False
@@ -257,7 +250,8 @@ class ECS_handler:
     def kvprint(self, *args, log='d'):
         message = ' '.join(str(arg) for arg in args)
         message = self.cli + message
-        # message = self.kvs.cli + self.cli + message
+        # formatted_time = datetime.datetime.now().strftime("%H:%M:%S")
+        # message = f'[{formatted_time}] {self.cli} {message}'
 
         if log == 'd':
             self.kvs.log.debug(message)
@@ -266,15 +260,9 @@ class ECS_handler:
         elif log == 'e':
             self.kvs.log.error(message)
 
-    # def ask_ring(self):  # For the client handler to get the ring
-    #     return self.kvs.ring_metadata
-    # def ask_replicas(self):  # For the client handler to get the ring
-    #     return self.ring_mine_replicas
-    # def ask_lock(self):  # For the client too
-    #     return self.write_lock
 
-    def ask_lock_ecs(self): # For the client too # Todo rethink
-        self.handle_json_REPLY('ring_metadata')
+    # def ask_lock_ecs(self): # For the client too # Todo rethink
+    #     self.handle_json_REPLY('ring_metadata')
 
     def send_data_to_reponsable(self, data):
         cli = '[send_data_to_reponsable]'
@@ -358,15 +346,15 @@ class ECS_handler:
                         if msg is None or msg == " " or not msg:
                             break
                         elif msg == 'organise received':
-                            self.kvprint(f'{cli}Arranging data completed successfully ', msg)
+                            self.kvprint(f'{cli} Arranging data completed successfully ', msg)
                             break
                         else:
-                            self.kvprint(f'{cli}Back msg: ', msg)
+                            self.kvprint(f'{cli} Back msg: ', msg)
                 else:
-                    self.kvprint(f'{cli}Arranging data.No data. --> Closing socket')
+                    self.kvprint(f'{cli} No data. --> Closing socket', log='e')
                     break
             except Exception as e:
-                self.kvprint(f'{cli}Exception handle_CONN: {e}')
+                self.kvprint(f'{cli}Exception handle_CONN: {e}', log='e')
                 break
         self.kvprint(f'{cli}Successfully rearrange data. Closing kv-kv socket')
         sock.close()

@@ -35,7 +35,7 @@ class ConsistentHashing:
                 replica1 = list(self.ring_coordinators.keys())[-1]
                 replica2 = list(self.ring_coordinators.keys())[-2]
                 for key, values in self.ring_coordinators.items():
-                    self.ecsprint(f'\t\t C {key}| R1 {replica1} | R2 {replica2}')
+                    # self.ecsprint(f'\t\t C {key}| R1 {replica1} | R2 {replica2}')
                     self.ring_replicas.append({'from': self.ring_coordinators[key]['from'],
                                                'to_hash': self.ring_coordinators[key]['to_hash'],
                                                'host': self.ring_coordinators[replica1]['host'],
@@ -48,16 +48,18 @@ class ConsistentHashing:
                                                'type': 'R2'})
                     replica2 = replica1
                     replica1 = key
-                if len(list(self.ring_coordinators.values())) == (len(self.ring_replicas) / 2):
-                    self.ecsprint(
-                        f'Ring > Successfully created replicas |C = {len(list(self.ring_coordinators.values()))}/ R = {len(self.ring_replicas)}')
-                else:
-                    self.ecsprint(
-                        f'Ring > Error C*2!=R |C = {len(list(self.ring_coordinators.values()))}/ R = {len(self.ring_replicas)}')
+                # if len(list(self.ring_coordinators.values())) == (len(self.ring_replicas) / 2):
+                #     self.ecsprint(
+                #         f'Ring > Successfully created replicas |C = {len(list(self.ring_coordinators.values()))}/ R = {len(self.ring_replicas)}')
+                # else:
+                #     self.ecsprint(
+                #         f'Ring > Error C*2!=R |C = {len(list(self.ring_coordinators.values()))}/ R = {len(self.ring_replicas)}')
+                self.complete_ring = list(self.ring_coordinators.values()) + self.ring_replicas
             else:
+                self.complete_ring = list(self.ring_coordinators.values())
                 self.ecsprint(f'Ring > No replica nodes.')
 
-            self.complete_ring = list(self.ring_coordinators.values()) + self.ring_replicas
+
             # self.ecsprint('--------------complete_ring--------')
             # for values in self.complete_ring:
             #     self.ecsprint(values)
