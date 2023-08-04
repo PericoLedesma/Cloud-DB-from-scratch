@@ -6,6 +6,7 @@ import select
 import json
 import os
 import logging
+import datetime
 
 os.system('cls' if os.name == 'nt' else 'clear')
 
@@ -17,8 +18,8 @@ class ECS:
         self.port = port
 
         # Time parameters
-        self.kvs_timeout = 25  # When we declare that a kvserver is not active
-        self.ecs_timeout = 35  # To control when to exit while loop.
+        self.kvs_timeout = 15  # When we declare that a kvserver is not active
+        self.ecs_timeout = 20  # To control when to exit while loop.
         self.sock_timeout = 5  # To control the while loop
         self.tictac = time.time()
 
@@ -27,6 +28,9 @@ class ECS:
         self.kvs_data = {}  # Data to store all the information of the kvs
         self.shutting_down_queue = []
         self.shuttingdown_kvservers = []
+
+        # Severs write lock
+        self.kvserver_write_lock = True
 
         # START
         self.init_log(log_level, log_file, directory)
@@ -58,7 +62,7 @@ class ECS:
                 for sock in readable:
                     if sock is server_socket:
                         kv_sock, kv_addr = server_socket.accept()
-                        self.ecsprint(f'++ New socket connected: {kv_addr}. Waiting to receive KVS data...')
+                        self.ecsprint(f'  ++++  New socket connected: {kv_addr}. Waiting to receive KVS data...')
                         self.kvs_connected[kv_sock] = {'addr': kv_addr,
                                                        'sock': kv_sock}
                         self.heartbeat()
@@ -75,7 +79,7 @@ class ECS:
                             self.closing_kvserver(sock)
 
                 if self.shutting_down_queue and self.shuttingdown_kvservers == []:
-                    self.ecsprint(f'Cleaning shutdown queue...')
+                    self.ecsprint(f'HERE Cleaning shutdown queue...')
                     id = self.shutting_down_queue[0][0]
                     socket_closing = self.shutting_down_queue[0][1]
                     del self.shutting_down_queue[0]
@@ -125,9 +129,10 @@ class ECS:
                 'active': False  # If it has clients, last active heartbeat
             }
             self.hash_class.new_node(self.kvs_data, id, self.handle_json_REPLY)
-            self.ecsprint(f'++ New kvserver{id} saved!, Current ids:{list(self.kvs_data)}')
+            self.ecsprint(f'  ++++  New kvserver{id} saved!, Current ids:{list(self.kvs_data)}')
             self.ecsprint(
                 f'Num. KVS con.[{len(self.kvs_connected.keys())}]|Num. Ring nodes:{len(self.hash_class.ring_coordinators)}')
+
             self.broadcast('ring_metadata', f'-> trigger {request}')
         elif request == 'heartbeat':
             id = self.kv_id(sock)
@@ -173,33 +178,17 @@ class ECS:
 
     def handle_json_REPLY(self, sock, request, data=None):
         MAX_BYTES = 128 * 1024  # 128 kilobytes in bytes #TODO
-
-        # else:
-        #     # If the message size exceeds the limit, split it into multiple messages
-        #     num_chunks = (message_length + MAX_BYTES_TO_SEND - 1) // MAX_BYTES_TO_SEND
-        #     for i in range(num_chunks):
-        #         start = i * MAX_BYTES_TO_SEND
-        #         end = min((i + 1) * MAX_BYTES_TO_SEND, message_length)
-        #         chunk = message_bytes[start:end]
-        #         sock.sendall(chunk)
-
         try:
-
             json_data = json.dumps(self.REPLY_templates(request, data))
             message_bytes = bytes(f'{json_data}\r\n', encoding='utf-8')
+            sock.sendall(message_bytes)
 
-            if len(message_bytes) > MAX_BYTES:
-                self.ecsprint(f'ERROR handle_json_REPLY with message_bytes too big ', log='e')
+            # if len(message_bytes) > MAX_BYTES:
+            #     self.ecsprint(f'ERROR handle_json_REPLY with message_bytes too big ', log='e')
 
             if request != 'heartbeat' and request != 'write_lock_act' and request != 'ring_metadata':
                 self.ecsprint(f'MSG sent to {self.kv_id(sock)}(SIZE {len(message_bytes)}/{MAX_BYTES}): {request}')
 
-            # if request == 'ring_metadata':
-            #     self.ecsprint(f"Sending ring_metadata")
-            #     # formatted_json = json.dumps(data, indent=4)
-            #     self.ecsprint(json_data)
-
-            sock.sendall(message_bytes)
         except Exception as e:
             self.ecsprint(f'Error while sending request {request} to KVS{self.kv_id(sock)}: {e}', log='e')
 
@@ -265,10 +254,10 @@ class ECS:
 
         if self.kvs_data[id]['to_hash'] in self.hash_class.ring_coordinators:
             # self.ecsprint(f'KVS{id} in coordinator ring. Removing it')
-            self.broadcast('write_lock_act')
+            self.broadcast('write_lock_act', f'-> trigger closing_kvserver')
             del self.hash_class.ring_coordinators[self.kvs_data[id]['to_hash']]
             self.hash_class.update_ring_intervals()
-            self.broadcast('ring_metadata')
+            self.broadcast('ring_metadata', f'-> trigger closing_kvserver')
         else:
             self.ecsprint(f'Error. Not found as node in the ring. Just removing and closing socket')
         sock.close()
@@ -277,7 +266,7 @@ class ECS:
     def ecsprint(self, *args, log='d'):
         message = ' '.join(str(arg) for arg in args)
         # message = self.cli + message
-        # message = message
+        message = f'[{datetime.datetime.now().strftime("%H:%M:%S")}] {self.cli} {message}'
         if log == 'd':
             self.log.debug(message)
         elif log == 'e':

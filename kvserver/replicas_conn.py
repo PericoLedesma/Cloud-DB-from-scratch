@@ -1,7 +1,7 @@
 import socket
 import json
 import time
-
+import datetime
 
 class Replicas_handler:
     def __init__(self, ecshandler, kvserver):
@@ -125,8 +125,10 @@ class Replicas_handler:
 
     def kvprint(self, *args, log='d'):
         message = ' '.join(str(arg) for arg in args)
-        message = self.cli + message
-        # message = self.kvs.cli + self.cli + message
+        # message = self.cli + message
+
+        message = f'[{datetime.datetime.now().strftime("%H:%M:%S")}] {self.cli} {message}'
+
         if log == 'd':
             self.kvs.log.debug(message)
         elif log == 'i':

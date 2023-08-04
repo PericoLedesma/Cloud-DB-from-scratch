@@ -31,7 +31,6 @@ class ConsistentHashing:
             self.ring_replicas = []
 
             if len(self.ring_coordinators) > 2:
-                # If more than 2 nodes we create the replicas structure
                 replica1 = list(self.ring_coordinators.keys())[-1]
                 replica2 = list(self.ring_coordinators.keys())[-2]
                 for key, values in self.ring_coordinators.items():
@@ -58,11 +57,6 @@ class ConsistentHashing:
             else:
                 self.complete_ring = list(self.ring_coordinators.values())
                 self.ecsprint(f'Ring > No replica nodes.')
-
-
-            # self.ecsprint('--------------complete_ring--------')
-            # for values in self.complete_ring:
-            #     self.ecsprint(values)
         else:
             self.ecsprint(f'Ring > No nodes. Ring not updated.')
 

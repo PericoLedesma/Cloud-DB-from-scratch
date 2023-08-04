@@ -25,9 +25,9 @@ class KVServer:
         self.name = f'KV{self.id}'
 
         # Time parameters
-        self.kvs_timeout = 20
-        self.sock_timeout = 15  # For client and ECS
-        self.heartbeat_interval = 5  # kvs Socket sock_timeout that will control more or less the heartbeat time
+        self.kvs_timeout = 15
+        self.sock_timeout = 10  # For client and ECS
+        self.heartbeat_interval = 3  # kvs Socket sock_timeout that will control more or less the heartbeat time
         self.tictac = time.time()
 
         # Server Socket parameters
@@ -187,9 +187,9 @@ class KVServer:
 
     def kvprint(self, *args, log='d'):
         message = ' '.join(str(arg) for arg in args)
-        message = self.cli + message
-        # formatted_time = datetime.datetime.now().strftime("%H:%M:%S")
-        # message = f'[{formatted_time}] {self.cli} {message}'
+        # message = self.cli + message
+
+        message = f'[{datetime.datetime.now().strftime("%H:%M:%S")}] {self.cli} {message}'
 
         if log == 'd':
             self.log.debug(message)

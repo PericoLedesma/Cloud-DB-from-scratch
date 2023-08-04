@@ -17,7 +17,7 @@ class Client_handler:
         self.client_fd = client_data[1]
         self.addr = client_data[2]
 
-        self.client_fd.settimeout(self.kvs.sock_timeout*2)
+        self.client_fd.settimeout(self.kvs.sock_timeout)
 
         self.coordinator = False # Storing the type of replica that we are for the coord.
         # self.conn_status = True  # todo change it to class varib
@@ -44,7 +44,7 @@ class Client_handler:
                             break
                         else:
                             if len(self.kvs.ring_metadata) > 0:
-                                # self.kvprint(f'MSG recv: [{msg}]')
+                                self.kvprint(f'MSG recv: [{msg}]')
                                 self.handle_RECV(msg, shutdown)
                             elif len(self.kvs.ring_metadata) == 0:
                                 self.handle_RESPONSE('server_stopped')
@@ -53,7 +53,7 @@ class Client_handler:
                     break
             except socket.timeout:
                 if self.coordinator:
-                    # self.kvprint(f'Time out handle_CONN coordinator --> Continue', log='e')
+                    self.kvprint(f'Time out handle_CONN coordinator --> Continue', log='e')
                     pass
                 elif self.coordinator and shutdown:
                     self.kvprint(f'Time out handle_CONN coordinator and shutdown--> Closing socket', log='e')
@@ -65,7 +65,10 @@ class Client_handler:
                 if self.coordinator:
                     self.kvprint(f'Exception handle_CONN coordinator: {e} --> Closing socket', log='e')
                     self.kvprint(f'Deleting me as replica of the coordinator..')
-                    del self.kvs.kv_data[self.coordinator]
+                    try:
+                        del self.kvs.kv_data[self.coordinator]
+                    except:
+                        pass
                     break
                 else:
                     self.kvprint(f'Exception handle_CONN client: {e} --> Closing socket', log='e')
@@ -137,14 +140,12 @@ class Client_handler:
             self.cache.delete(key)
             self.DELETE_request(key)
         elif request == 'keyrange':
-            # self.kvprint(f'Request => keyrange')
             message = ''
             for v in self.kvs.ring_metadata.values():
                 row = f'{v["from"]},{v["to_hash"]},{v["host"]}:{v["port"]};'
                 message = f'{message}{row}'
             self.handle_RESPONSE(message)
         elif request == 'keyrange_read':
-            # self.kvprint(f'Request => keyrange_read')
             message = ''
             for v in self.kvs.complete_ring:
                 row = f'{v["from"]},{v["to_hash"]},{v["host"]}:{v["port"]};'
@@ -165,14 +166,14 @@ class Client_handler:
                 with self.kvs.lock:
                     self.PUT_request(key, value)
         elif request == 'show':
-            # self.kvprint(f'Request => show db')
+            self.kvprint(f'Request => show db')
             self.handle_RESPONSE(self.print_storage())
         elif request == 'completed':
-            # self.kvprint(f'Request => organise completed')
+            self.kvprint(f'Request => organise completed')
             self.handle_RESPONSE('organise received')
             self.handle_REQUEST('close')
         elif request == 'close':
-            # self.kvprint(f'Request => close')
+            self.kvprint(f'Request => close')
             Client_handler.conn_status = False
             self.handle_RESPONSE('End connection with client')
         else:  # ERRORS
@@ -324,9 +325,8 @@ class Client_handler:
 
     def kvprint(self, *args, log='d'):
         message = ' '.join(str(arg) for arg in args)
-        message = '\t' + self.cli + message
-        # formatted_time = datetime.datetime.now().strftime("%H:%M:%S")
-        # message = f'[{formatted_time}] {self.cli} {message}'
+        # message = '\t' + self.cli + message
+        message = f'[{datetime.datetime.now().strftime("%H:%M:%S")}] {self.cli} {message}'
 
         if log == 'd':
             self.kvs.log.debug(message)

@@ -249,9 +249,9 @@ class ECS_handler:
 
     def kvprint(self, *args, log='d'):
         message = ' '.join(str(arg) for arg in args)
-        message = self.cli + message
-        # formatted_time = datetime.datetime.now().strftime("%H:%M:%S")
-        # message = f'[{formatted_time}] {self.cli} {message}'
+        # message = self.cli + message
+
+        message = f'[{datetime.datetime.now().strftime("%H:%M:%S")}] {self.cli} {message}'
 
         if log == 'd':
             self.kvs.log.debug(message)
