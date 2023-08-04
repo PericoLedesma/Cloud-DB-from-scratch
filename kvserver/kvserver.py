@@ -36,11 +36,26 @@ class KVServer:
                         'port': self.port,
                         'ecs_addr': ecs_addr}
 
+        # Ring metadata
+        self.ring_metadata = {}
+        self.ring_replicas = []
+        self.ring_mine_replicas = {}
+        self.complete_ring = {}
+
+        # To turn of the ecs handler and the thread
+        self.kvs_ON = True
+        self.shutdown = False  # To shutdown after arranging data.
+
+        # Lock write parameter. While server starting locked
+        self.write_lock = True
+
         # Printing parameters
         self.cli = f'[{self.name}]>'
 
         # So threads doesnt enter same time to the put process
         self.lock = threading.Lock()
+
+
 
         # Cache
         self.c_strg = cache_strategy
@@ -57,11 +72,7 @@ class KVServer:
         self.kvprint(f'{"-" * 60}')
 
         # ECS handler thread starter
-        self.ecs = ECS_handler(self.kv_data,
-                               self.clients_conn,
-                               self.storage_dir,
-                               [self.cli, self.log],
-                               self.sock_timeout)
+        self.ecs = ECS_handler(self)
         ecs_thread = threading.Thread(target=self.ecs.handle_CONN, args=())
         ecs_thread.start()
         self.RUN_kvserver()
@@ -83,7 +94,7 @@ class KVServer:
             self.kvprint(" ----> Init backup process <----")
             self.kvprint(" --------------------------------")
             self.ecs.write_lock = True
-            self.ecs.shutdown = True
+            self.shutdown = True
             self.listen_to_connections(server)
             if self.clients_conn:
                 for id, client_handler in self.clients_conn.items():
@@ -99,7 +110,7 @@ class KVServer:
 
     def listen_to_connections(self, server):
         self.kvprint(f'Listening on {self.addr}:{self.port}')
-        while self.ecs.kvs_ON:
+        while self.kvs_ON:
             try:
                 readable, _, _ = select.select([server], [], [], self.heartbeat_interval)
                 for sock in readable:
@@ -147,23 +158,25 @@ class KVServer:
             else:
                 break
         self.kvprint(f'Init client handler....')
-        self.clients_conn[client_id] = Client_handler(clients_conn=self.clients_conn,
-                                                      client_data=[self.kv_data, client_id, conn, addr],
-                                                      ring_structures=[self.ecs.ask_ring, self.ecs.ask_replicas, self.ecs.ask_lock, self.ecs.ask_lock_ecs],
-                                                      connected_replicas=self.ecs.rep.connected_replicas,
-                                                      cache_config=[self.c_strg, self.c_size],
-                                                      lock=self.lock,
-                                                      storage_dir=self.storage_dir,
-                                                      printer_config=[self.cli, self.log],
-                                                      timeout_config=[self.tictac, self.sock_timeout])
+        self.clients_conn[client_id] = Client_handler(kvserver=self,
+                                                      ecshandler=self.ecs,
+                                                      client_data=[client_id, conn, addr])
 
         client_thread = threading.Thread(target=self.clients_conn[client_id].handle_CONN, args=())
         client_thread.start()
 
 
-
     def check_active_clients(self):
         return sum(value is not None for value in self.clients_conn.values())
+
+    def closing_all(self):
+        self.kvprint(f'-------> Stopping ALL <------')
+        self.kvprint(f'Asking clients handler to stop...')
+        Client_handler.conn_status = False
+        self.kvprint(f'ecs_connected --> OFF')
+        self.ecs.ecs_connected = False
+        self.kvprint(f'kvs_ON --> OFF')
+        self.kvs_ON = False
 
     def init_storage(self, directory):
         self.storage_dir = os.path.join(directory, f'kserver{self.id}_storage')

@@ -1,5 +1,3 @@
-from replicas_conn import *
-
 import socket
 import json
 import shelve
@@ -7,33 +5,24 @@ import time
 
 
 class Replicas_handler:
-    def __init__(self, kv_data, storage_dir, ring_mine_replicas, printer_config, sock_timeout):
+    def __init__(self, ecshandler, kvserver):
+        self.ecsh = ecshandler
+        self.kvserver = kvserver
 
         # Printing parameters
         self.cli = f'[ - Replicas - ]>'
-        self.print_cnfig = printer_config
-        self.storage_dir = storage_dir
 
         # Data structures
-        self.kv_data = kv_data
-        self.ring_mine_replicas = {}
         self.connected_replicas = {}
-
-        # Some function to ask for data. todo rethink
-        self.ring_mine_replicas = ring_mine_replicas
-        # self.ask_lock_ecs = ring_structures[2]
-
-        # Timeout and heartbeat parameters
-        self.sock_timeout = sock_timeout
 
         self.kvprint(f'Running Replicas handler...')
 
-    def update_replicas(self, replicas_list):
+    def update_replicas(self):
         # Current replicas
-        if self.ring_mine_replicas:
+        if self.kvserver.ring_mine_replicas:
             self.kvprint(f'Updating replicas .... We have already replicas')
             # self.kvprint(f'------')
-            # for key, value in self.ring_mine_replicas.items():
+            # for key, value in self.kvserver.ring_mine_replicas.items():
             #     self.kvprint(f'Mine Replicas already connected {key} {value}')
             # for key, value in self.connected_replicas.items():
             #     self.kvprint(f'Connected Replica  {key} {value}')
@@ -41,34 +30,34 @@ class Replicas_handler:
 
             # big todo, if it is connected but type is different
 
-            for value in replicas_list:
+            for value in self.kvserver.ring_replicas:
 
-                if value['from'] == self.kv_data['from'] and value['to_hash'] == self.kv_data['to_hash']:
+                if value['from'] == self.kvserver.kv_data['from'] and value['to_hash'] == self.kvserver.kv_data['to_hash']:
                     # self.kvprint(f'This should be my Replica {value}')
-                    if self.ring_mine_replicas[value['type']]['host'] == value['host'] and self.ring_mine_replicas[value['type']]['port'] == value['port']:
+                    if self.kvserver.ring_mine_replicas[value['type']]['host'] == value['host'] and self.kvserver.ring_mine_replicas[value['type']]['port'] == value['port']:
                         # self.kvprint(f'Replica already connected.')
                         pass
                     else:
                         # self.kvprint(f'New replica. Removing previous and connecting to new one. ')
                         self.close_replica(value)
-                        self.ring_mine_replicas[value['type']] = value
+                        self.kvserver.ring_mine_replicas[value['type']] = value
                         self.connect_to_replica(value)
         else:
             self.kvprint(f'Updating replicas .... No previous replicas')
 
-            for value in replicas_list:
-                if value['from'] == self.kv_data['from'] and value['to_hash'] == self.kv_data['to_hash']:
+            for value in self.kvserver.ring_replicas:
+                if value['from'] == self.kvserver.kv_data['from'] and value['to_hash'] == self.kvserver.kv_data['to_hash']:
                     # self.kvprint(f'My Replica  {value}')
-                    self.ring_mine_replicas[value['type']] = value
+                    self.kvserver.ring_mine_replicas[value['type']] = value
                     self.connect_to_replica(value)
 
         self.kvprint(f'Finish updating replicas.')
 
 
-        # self.kvprint(self.kv_data)
+        # self.kvprint(self.kvserver.kv_data)
         # self.kvprint(f'My replicas data')
 
-        # self.kvprint(self.ring_mine_replicas)
+        # self.kvprint(self.kvserver.ring_mine_replicas)
 
         # self.kvprint(f'Checking connection again')
         #
@@ -92,7 +81,7 @@ class Replicas_handler:
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 sock.connect((rep['host'], int(rep['port'])))
                 addr, port = sock.getsockname()
-                sock.settimeout(self.sock_timeout)
+                sock.settimeout(self.kvserver.sock_timeout)
                 self.kvprint(f'Connected to rep {rep["host"]}:{rep["port"]}. Connection addr: {addr}:{port}')
 
                 self.connected_replicas[sock] = {
@@ -103,7 +92,7 @@ class Replicas_handler:
                     'host_port': f'{rep["port"]}',
                     'type': rep["type"]
                 }
-                self.handle_REPLY(sock, f'you_are_my_replica {rep["type"]} {self.kv_data["from"]}  {self.kv_data["to_hash"]}')
+                self.handle_REPLY(sock, f'you_are_my_replica {rep["type"]} {self.kvserver.kv_data["from"]}  {self.kvserver.kv_data["to_hash"]}')
                 break
             except socket.error as e:
                 # self.kvprint(f'Error connecting:{e}. Retrying..')
@@ -208,10 +197,10 @@ class Replicas_handler:
     def kvprint(self, *args, log='d'):
         message = ' '.join(str(arg) for arg in args)
         message = self.cli + message
-        # message = self.print_cnfig[0] + self.cli + message
+        # message = self.kvserver.cli + self.cli + message
         if log == 'd':
-            self.print_cnfig[1].debug(message)
+            self.kvserver.log.debug(message)
         elif log == 'i':
-            self.print_cnfig[1].info(message)
+            self.kvserver.log.info(message)
         elif log == 'e':
-            self.print_cnfig[1].error(message)
+            self.kvserver.log.error(message)

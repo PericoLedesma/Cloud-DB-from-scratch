@@ -5,55 +5,34 @@ import hashlib
 
 # ------------------------------------------------------------------------
 class Client_handler:
+    conn_status = True
 
+    def __init__(self, kvserver, ecshandler, client_data):
+        self.kvs = kvserver
+        self.ecsh = ecshandler
 
-    def __init__(self,
-                 clients_conn,
-                 client_data,
-                 ring_structures,
-                 connected_replicas,
-                 cache_config,
-                 lock,
-                 storage_dir,
-                 printer_config,
-                 timeout_config):
+        # Client data
+        self.client_id = client_data[0]
+        self.client_fd = client_data[1]
+        self.addr = client_data[2]
 
-        self.clients_conn = clients_conn
-        self.kv_data = client_data[0]
-        self.client_id = client_data[1]
-        self.client_fd = client_data[2]
-        self.addr = client_data[3]
+        self.client_fd.settimeout(self.kvs.sock_timeout)
 
-        self.tictac = timeout_config[0]
-        self.client_fd.settimeout(timeout_config[1])
         self.coordinator = False # Storing the type of replica that we are for the coord.
+        # self.conn_status = True  # todo change it to class varib
 
-        # Some function to ask for data. todo rethink
-        self.ask_ring = ring_structures[0]
-        self.ask_replicas = ring_structures[1]
-        self.ask_lock = ring_structures[2]
-        self.ask_lock_ecs = ring_structures[3]
-
-        # Connection to rep
-        self.connected_replicas = connected_replicas
-
-        self.conn_status = True  # todo change it to class varib
-        self.lock = lock
-        self.storage_dir = storage_dir
-
-        self.welcome_msg = f'Hi! You are connected to {self.kv_data["name"]}.'
+        self.welcome_msg = f'Hi! You are connected to {self.kvs.kv_data["name"]}.'
         self.cli = f'[Client{self.client_id}]>' # Todo change name is it is a replica
-        self.print_cnfig = printer_config
 
         # START
-        self.cache_init(cache_config)
+        self.cache_init()
         self.kvprint(f'> Running Client handler {self.client_id}')
 
         self.handle_RESPONSE(self.welcome_msg)
 
 
     def handle_CONN(self, shutdown=False):
-        while self.conn_status:
+        while Client_handler.conn_status:
             try:
                 data = self.client_fd.recv(128 * 1024)
                 if data:
@@ -64,9 +43,9 @@ class Client_handler:
                             break
                         else:
                             self.kvprint(f'MSG recv: [{msg}]')
-                            if len(self.ask_ring()) > 0:
+                            if len(self.kvs.ring_metadata) > 0:
                                 self.handle_RECV(msg, shutdown)
-                            elif len(self.ask_ring()) == 0:
+                            elif len(self.kvs.ring_metadata) == 0:
                                 self.kvprint(f'MSG sent: server_stopped')
                                 self.handle_RESPONSE('server_stopped')
                 else:
@@ -85,12 +64,12 @@ class Client_handler:
                 if self.coordinator:
                     self.kvprint(f'Exception handle_CONN coordinator: {e} --> Closing socket', log='e')
                     self.kvprint(f'Deleting me as replica of the coordinator..', log='e')
-                    del self.kv_data[self.coordinator]
+                    del self.kvs.kv_data[self.coordinator]
                     break
                 else:
                     self.kvprint(f'Exception handle_CONN client: {e} --> Closing socket', log='e')
                     break
-        self.clients_conn[self.client_id] = None
+        self.kvs.clients_conn[self.client_id] = None
         self.client_fd.close()
         self.kvprint(f'Stopped')
         del self
@@ -99,17 +78,17 @@ class Client_handler:
 
     def handle_RECV(self, msg, shutdown):
         method, *args = msg.split()
-        # self.kvprint(f'HEREEEE method : {method} => *args  {args}')
+        # self.kvprint(f'handle_RECV method : {method} => *args  {args}')
         if shutdown is False:
-            if method in ['put', 'delete'] and self.ask_lock() is False:
+            if method in ['put', 'delete'] and self.kvs.write_lock is False:
                 key = args[0]
                 if self.key_check_coordinators(self.hash(key)) is False:
                     self.handle_RESPONSE(f'server_not_responsible') # TODO delete data
                 else:
                     self.handle_REQUEST(method, *args)
-            elif method in ['put', 'delete'] and self.ask_lock():
+            elif method in ['put', 'delete'] and self.kvs.write_lock:
                 self.handle_RESPONSE('server_write_lock')
-                self.ask_lock_ecs() #todo check
+                self.ecsh.handle_json_REPLY('ring_metadata')() #todo check
             elif method in ['get']:
                 key = self.hash(args[0])
                 if self.key_check_coordinators(key):
@@ -143,14 +122,14 @@ class Client_handler:
 
 
     def handle_REQUEST(self, request, *args):
-        # self.kvprint(f'Request => [{request}]')
+        self.kvprint(f'handle_REQUEST')
         if request == 'put' and len(args) > 1:
             key, value = args[0], ' '.join(args[1:])
             self.cache.put(key, value)
-            with self.lock:
+            with self.kvs.lock:
                 self.PUT_request(key, value)
             # Replicas
-            for sock, rep in self.connected_replicas.items():
+            for sock, rep in self.ecsh.rep.connected_replicas.items():
                 self.kvprint(f'Sending data to REPLICA{rep["type"]} > put |{key} |{value}')
                 self.handle_rep_RESPONSE(rep["sock"], f'{rep["type"]} put {key} {value}')
         elif request == 'get' and len(args) == 1:
@@ -175,10 +154,10 @@ class Client_handler:
         elif request == 'keyrange':
             self.kvprint(f'Request => keyrange')
             message = ''
-            # self.kvprint(self.ask_ring())
+            # self.kvprint(self.kvs.ring_metadata)
             # self.kvprint('-------')
             # self.kvprint(self.ring_metadata2)
-            for key, v in self.ask_ring().items():
+            for key, v in self.kvs.ring_metadata.items():
                 if v['type'] == 'C':
                     row = f'{v["from"]},{v["to_hash"]},{v["host"]}:{v["port"]};'
                     message = f'{message}{row}'
@@ -186,26 +165,26 @@ class Client_handler:
         elif request == 'keyrange_read':
             self.kvprint(f'Request => keyrange_read')
             message = ''
-            for key, v in self.ask_ring().items():
+            for key, v in self.kvs.ring_metadata.items():
                 row = f'{v["from"]},{v["to_hash"]},{v["host"]}:{v["port"]};'
                 message = f'{message}{row}'
             self.handle_RESPONSE(message)
         elif request == 'close':
             self.kvprint(f'Request => close')
-            self.conn_status = False
+            Client_handler.conn_status = False
             self.handle_RESPONSE('End connection with client')
         elif request == 'you_are_my_replica': # Todo a check if we are responsable
             rep_type, interval = args[0], args[1:]
             self.kvprint(f'Request => you_are_my_replica {rep_type}. Changing promtp {self.cli}> [Coordinator{rep_type}]')
             self.cli = f'[Coordinator{rep_type}]>' # Todo delete the coordinator when new
             self.coordinator = rep_type
-            self.kv_data[rep_type] = {
+            self.kvs.kv_data[rep_type] = {
                 "from": interval[0],
                 "to_hash": interval[1]
             }
             # self.kvprint(f'My interval as replica {rep_type} stored')
             # self.kvprint(f'MY DATA')
-            # self.kvprint(self.kv_data)
+            # self.kvprint(self.kvs.kv_data)
             # self.kvprint(f'-------')
 
         elif request == 'coordinator_order': # Todo a check if we are responsable
@@ -213,7 +192,7 @@ class Client_handler:
             self.kvprint(f'Request => coordinator_order to {rep_type} (me) => Request {method} |key {key}, value {value}')
             if method == 'put':
                 self.cache.put(key, value) # Cache lock too
-                with self.lock:
+                with self.kvs.lock:
                     self.PUT_request(key, value)
         else:  # ERRORS
             if request == 'pass':  # Logic when the
@@ -230,7 +209,7 @@ class Client_handler:
     def PUT_request(self, key, value):
         self.kvprint(f'Request => put {key} {value}')
         try:
-            with shelve.open(self.storage_dir, writeback=True) as db:
+            with shelve.open(self.kvs.storage_dir, writeback=True) as db:
                 if key in db:
                     if db.get(key) == value:
                         # self.kvprint(f'{key} |{value} already exists with same values')
@@ -251,7 +230,7 @@ class Client_handler:
     def GET_request(self, key):
         self.kvprint(f'{key}Request => get {key}')
         try:
-            with shelve.open(self.storage_dir, flag='r') as db:
+            with shelve.open(self.kvs.storage_dir, flag='r') as db:
                 value = db.get(key)
                 if value is not None:
                     # self.kvprint(f'Key {key} found. Value {value}')
@@ -268,7 +247,7 @@ class Client_handler:
         self.kvprint(f'Request => delete {key}')
         # self.cache.print_cache()
         try:
-            with shelve.open(self.storage_dir, writeback=True) as db:
+            with shelve.open(self.kvs.storage_dir, writeback=True) as db:
                 if key in db:
                     self.kvprint(f'Key {key} found.')
                     value = db.get(key)
@@ -293,26 +272,26 @@ class Client_handler:
     def key_check_coordinators(self, hash):
         # Here we check just coordinators nodes
         int_hash = int(hash, 16)
-        self.kvprint(f'key_check_coordinators: len(ring_metadata) =  {len(self.ask_ring())}')
-        if len(self.ask_ring()) == 1:
-            if self.ask_ring()[self.kv_data['to_hash']] is not None:
+        self.kvprint(f'key_check_coordinators: len(ring_metadata) =  {len(self.kvs.ring_metadata)}')
+        if len(self.kvs.ring_metadata) == 1:
+            if self.kvs.ring_metadata[self.kvs.kv_data['to_hash']] is not None:
                 return True
             else:
                 raise Exception('Key checker ERROR. Just one node and it is not me')
-        elif len(self.ask_ring()) > 1:
-            list_hash = list(self.ask_ring()).copy()
+        elif len(self.kvs.ring_metadata) > 1:
+            list_hash = list(self.kvs.ring_metadata).copy()
             sorted_hash_list = sorted(list_hash, key=lambda x: int(x, 16))
-            if sorted_hash_list[0] == self.kv_data['to_hash']:  # If it is the last range
+            if sorted_hash_list[0] == self.kvs.kv_data['to_hash']:  # If it is the last range
                 if int(sorted_hash_list[-1], 16) < int_hash or int_hash < int(sorted_hash_list[0], 16):
                     return True
                 else:
                     return False
             else:
-                if int(self.kv_data['from'], 16) < int_hash < int(self.kv_data['to_hash'], 16):
+                if int(self.kvs.kv_data['from'], 16) < int_hash < int(self.kvs.kv_data['to_hash'], 16):
                     return True
                 else:
                     return False
-        elif self.ask_ring() is None or self.ask_ring() == {}:
+        elif self.kvs.ring_metadata is None or self.kvs.ring_metadata == {}:
             self.kvprint('ERROR in key_check_coordinators. ring_metadata EMPTY', log='e')
             return None
         else:
@@ -321,27 +300,25 @@ class Client_handler:
 
     def key_check_replicas(self, hash):
         int_hash = int(hash, 16)
-        print('HERE 1')
-        if len(self.ask_replicas()) != 2:
-            self.kvprint(f'Error key_check_replicas: len(ring_metadata) =  {len(self.ask_replicas())}')
-        print('HERE 2')
-        self.kvprint(f' key_check_replicas')
-        replicas = self.ask_replicas
-        print(self.ask_replicas)
-        print(type(self.ask_replicas))
-        print(replicas)
-        print(type(replicas))
-        for replica in replicas:
-            print('HERE 3')
-            list_hash = list(self.ask_ring()).copy()
-            sorted_hash_list = sorted(list_hash, key=lambda x: int(x, 16))
+        # if len(self.kvs.ring_metadata.keys()) == 3:
+        #     return True
+        # else:
 
+        self.kvprint(f'key_check_replicas')
+        self.kvprint(self.kvs.ring_mine_replicas)
+        
+        for rtype, replica in self.kvs.ring_mine_replicas.items():
+            list_hash = list(self.kvs.ring_metadata).copy()
+            sorted_hash_list = sorted(list_hash, key=lambda x: int(x, 16))
+            print('sorted_hash_list ', sorted_hash_list)
             if sorted_hash_list[0] == replica['to_hash']:  # If it is the last range
+                print('last range')
                 if int(sorted_hash_list[-1], 16) < int_hash or int_hash < int(sorted_hash_list[0], 16):
                     return True
                 else:
                     pass
             else:
+                print('NO last range')
                 if int(replica['from'], 16) < int_hash < int(replica['to_hash'], 16):
                     return True
                 else:
@@ -356,19 +333,18 @@ class Client_handler:
         # return str(md5_hash)
         return md5_hash
 
-    def cache_init(self, cache_config):
-        cache_type, cache_cap = cache_config[0], cache_config[1]
-        if cache_type == 'FIFO':
-            self.cache = FIFOCache(cache_cap)
-        elif cache_type == 'LRU':
-            self.cache = LRUCache(cache_cap)
-        elif cache_type == 'LFU':
-            self.cache = LFUCache(cache_cap)
+    def cache_init(self):
+        if self.kvs.c_strg == 'FIFO':
+            self.cache = FIFOCache(self.kvs.c_size)
+        elif self.kvs.c_strg == 'LRU':
+            self.cache = LRUCache(self.kvs.c_size)
+        elif self.kvs.c_strg == 'LFU':
+            self.cache = LFUCache(self.kvs.c_size)
         else:
             self.kvprint(f'error cache selection', log='e')
 
     def print_storage(self):
-        with shelve.open(self.storage_dir, flag='r') as db:
+        with shelve.open(self.kvs.storage_dir, flag='r') as db:
             message = f"\n------------------\n"
             message += f'All key-value pairs\n'
             counter = 1
@@ -381,10 +357,10 @@ class Client_handler:
     def kvprint(self, *args, log='d'):
         message = ' '.join(str(arg) for arg in args)
         message = '\t' + self.cli + message
-        # message = self.print_cnfig[0] + self.cli + message
+        # message = self.kvs.cli + self.cli + message
         if log == 'd':
-            self.print_cnfig[1].debug(message)
+            self.kvs.log.debug(message)
         elif log == 'i':
-            self.print_cnfig[1].info(message)
+            self.kvs.log.info(message)
         elif log == 'e':
-            self.print_cnfig[1].error(message)
+            self.kvs.log.error(message)
